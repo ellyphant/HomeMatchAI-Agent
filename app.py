@@ -65,16 +65,18 @@ def match_properties(preferences: dict, properties: list) -> list:
         score = 0
         reasons = []
 
-        if 'max_budget' in preferences and 'price' in prop:
-            if prop['price'] <= preferences['max_budget']:
+        max_budget = preferences.get('max_budget')
+        if max_budget and 'price' in prop:
+            if prop['price'] <= max_budget:
                 score += 30
                 reasons.append("Within budget")
-            elif prop['price'] <= preferences['max_budget'] * 1.1:
+            elif prop['price'] <= max_budget * 1.1:
                 score += 15
                 reasons.append("Slightly over budget but close")
 
-        if 'min_bedrooms' in preferences and 'bedrooms' in prop:
-            if prop['bedrooms'] >= preferences['min_bedrooms']:
+        min_bedrooms = preferences.get('min_bedrooms')
+        if min_bedrooms and 'bedrooms' in prop:
+            if prop['bedrooms'] >= min_bedrooms:
                 score += 20
                 reasons.append(f"{prop['bedrooms']} bedrooms meets requirement")
 
