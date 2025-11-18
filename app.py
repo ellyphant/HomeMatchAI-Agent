@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
-import anthropic
+from openai import OpenAI
 import json
 import os
 from datetime import datetime
@@ -10,9 +10,10 @@ load_dotenv()
 
 app = Flask(__name__)
 
-# Initialize Anthropic client with explicit API key
-client = anthropic.Anthropic(
-    api_key=os.environ.get("ANTHROPIC_API_KEY")
+# Initialize OpenAI-compatible client for Synthetic API
+client = OpenAI(
+    api_key=os.environ.get("SYNTHETIC_API_KEY"),
+    base_url="https://api.synthetic.new/openai/v1"
 )
 
 # Simple rate limiting (in-memory)
@@ -31,11 +32,11 @@ def load_prompt(prompt_name):
         return f.read()
 
 def analyze_buyer_preferences(buyer_input: str) -> dict:
-    """Use Claude to extract structured preferences from buyer input."""
+    """Use LLM to extract structured preferences from buyer input."""
     prompt = load_prompt('analyzer')
 
-    response = client.messages.create(
-        model="claude-sonnet-4-20250514",
+    response = client.chat.completions.create(
+        model="gpt-4o",
         max_tokens=1024,
         messages=[
             {
@@ -45,7 +46,7 @@ def analyze_buyer_preferences(buyer_input: str) -> dict:
         ]
     )
 
-    response_text = response.content[0].text
+    response_text = response.choices[0].message.content
     try:
         start = response_text.find('{')
         end = response_text.rfind('}') + 1
@@ -100,7 +101,7 @@ def match_properties(preferences: dict, properties: list) -> list:
     return matches[:5]
 
 def generate_email(buyer_name: str, preferences: dict, matches: list) -> str:
-    """Use Claude to generate a personalized email with property recommendations."""
+    """Use LLM to generate a personalized email with property recommendations."""
     prompt = load_prompt('email_gen')
 
     matches_text = ""
@@ -113,8 +114,8 @@ def generate_email(buyer_name: str, preferences: dict, matches: list) -> str:
         matches_text += f"   Features: {', '.join(prop.get('features', []))}\n"
         matches_text += f"   Why it matches: {', '.join(match['match_reasons'])}\n"
 
-    response = client.messages.create(
-        model="claude-sonnet-4-20250514",
+    response = client.chat.completions.create(
+        model="gpt-4o",
         max_tokens=2048,
         messages=[
             {
@@ -128,7 +129,7 @@ def generate_email(buyer_name: str, preferences: dict, matches: list) -> str:
         ]
     )
 
-    return response.content[0].text
+    return response.choices[0].message.content
 
 def run_campaign(buyer_name: str, buyer_input: str) -> dict:
     """Main agent workflow."""
