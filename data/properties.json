@@ -1,0 +1,112 @@
+[
+  {
+    "id": "prop-001",
+    "address": "123 Oak Street, San Francisco, CA 94102",
+    "price": 1250000,
+    "bedrooms": 3,
+    "bathrooms": 2,
+    "sqft": 1800,
+    "neighborhood": "Pacific Heights",
+    "features": ["garage", "backyard", "modern kitchen", "hardwood floors", "washer/dryer"],
+    "description": "Charming Victorian home with modern updates in the heart of Pacific Heights."
+  },
+  {
+    "id": "prop-002",
+    "address": "456 Marina Blvd, San Francisco, CA 94123",
+    "price": 1850000,
+    "bedrooms": 4,
+    "bathrooms": 3,
+    "sqft": 2400,
+    "neighborhood": "Marina",
+    "features": ["ocean view", "garage", "modern kitchen", "home office", "deck"],
+    "description": "Stunning Marina home with panoramic bay views and luxury finishes."
+  },
+  {
+    "id": "prop-003",
+    "address": "789 Valencia St, San Francisco, CA 94110",
+    "price": 950000,
+    "bedrooms": 2,
+    "bathrooms": 1,
+    "sqft": 1200,
+    "neighborhood": "Mission",
+    "features": ["modern kitchen", "hardwood floors", "washer/dryer", "roof deck"],
+    "description": "Hip Mission District condo with rooftop access and walkable neighborhood."
+  },
+  {
+    "id": "prop-004",
+    "address": "321 Divisadero St, San Francisco, CA 94117",
+    "price": 1100000,
+    "bedrooms": 3,
+    "bathrooms": 2,
+    "sqft": 1600,
+    "neighborhood": "NoPa",
+    "features": ["backyard", "garage", "fireplace", "hardwood floors"],
+    "description": "Classic NoPa Victorian with original details and private garden."
+  },
+  {
+    "id": "prop-005",
+    "address": "555 Hayes St, San Francisco, CA 94102",
+    "price": 875000,
+    "bedrooms": 2,
+    "bathrooms": 2,
+    "sqft": 1100,
+    "neighborhood": "Hayes Valley",
+    "features": ["modern kitchen", "in-unit laundry", "gym", "roof deck"],
+    "description": "Modern Hayes Valley condo steps from shops and restaurants."
+  },
+  {
+    "id": "prop-006",
+    "address": "888 Lake St, San Francisco, CA 94118",
+    "price": 1650000,
+    "bedrooms": 4,
+    "bathrooms": 3,
+    "sqft": 2200,
+    "neighborhood": "Inner Richmond",
+    "features": ["garage", "backyard", "modern kitchen", "home office", "fireplace"],
+    "description": "Spacious family home near Golden Gate Park with large yard."
+  },
+  {
+    "id": "prop-007",
+    "address": "222 Folsom St, San Francisco, CA 94105",
+    "price": 1350000,
+    "bedrooms": 2,
+    "bathrooms": 2,
+    "sqft": 1400,
+    "neighborhood": "SoMa",
+    "features": ["city view", "gym", "doorman", "modern kitchen", "balcony"],
+    "description": "Luxury high-rise condo with stunning city views and full amenities."
+  },
+  {
+    "id": "prop-008",
+    "address": "444 Noe St, San Francisco, CA 94114",
+    "price": 1450000,
+    "bedrooms": 3,
+    "bathrooms": 2,
+    "sqft": 1700,
+    "neighborhood": "Noe Valley",
+    "features": ["backyard", "garage", "modern kitchen", "hardwood floors", "home office"],
+    "description": "Sunny Noe Valley home with garden and family-friendly street."
+  },
+  {
+    "id": "prop-009",
+    "address": "999 Broadway, San Francisco, CA 94133",
+    "price": 2200000,
+    "bedrooms": 4,
+    "bathrooms": 4,
+    "sqft": 3000,
+    "neighborhood": "Russian Hill",
+    "features": ["bay view", "garage", "modern kitchen", "wine cellar", "home theater"],
+    "description": "Spectacular Russian Hill penthouse with bridge and bay views."
+  },
+  {
+    "id": "prop-010",
+    "address": "666 Clement St, San Francisco, CA 94118",
+    "price": 1050000,
+    "bedrooms": 3,
+    "bathrooms": 2,
+    "sqft": 1500,
+    "neighborhood": "Outer Richmond",
+    "features": ["garage", "backyard", "updated kitchen", "hardwood floors"],
+    "description": "Well-maintained Richmond home close to Ocean Beach and restaurants."
+  }
+]

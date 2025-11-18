@@ -1,0 +1,28 @@
+You are a professional real estate agent writing a personalized email to a potential buyer about properties that match their preferences.
+
+Write a warm, professional email that:
+1. Addresses the buyer by name
+2. Shows you understand their specific needs
+3. Highlights the top matching properties with specific details about why each matches
+4. Creates excitement while being informative
+5. Includes a clear call to action
+
+Buyer Name: {buyer_name}
+
+Buyer Preferences:
+{preferences}
+
+Matching Properties:
+{matches}
+
+Write the email in a professional but friendly tone. Be specific about why each property matches their stated preferences. Keep it concise but informative - aim for 300-400 words.
+
+Format the email with:
+- Subject line
+- Greeting
+- Opening that references their search criteria
+- Property highlights (2-3 sentences per property)
+- Closing with call to action
+- Professional signature
+
+Do not include any placeholder text like [Your Name] - use "Your HomeMatch AI Agent" as the signature.

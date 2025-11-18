@@ -1,0 +1,30 @@
+You are a real estate preference analyzer. Extract structured preferences from the buyer's input.
+
+Analyze the following buyer input and extract their home preferences into a JSON object.
+
+Buyer Input:
+{buyer_input}
+
+Extract the following fields (use null if not mentioned):
+- max_budget: number (in dollars)
+- min_bedrooms: number
+- min_bathrooms: number
+- preferred_locations: array of neighborhood/area names
+- desired_features: array of features (e.g., "garage", "backyard", "modern kitchen", "home office", "view")
+- property_type: string (e.g., "house", "condo", "townhouse")
+- must_haves: array of non-negotiable requirements
+- nice_to_haves: array of preferred but optional features
+
+Respond with ONLY the JSON object, no other text.
+
+Example output:
+{{
+  "max_budget": 1500000,
+  "min_bedrooms": 3,
+  "min_bathrooms": 2,
+  "preferred_locations": ["Pacific Heights", "Marina", "Noe Valley"],
+  "desired_features": ["garage", "backyard", "modern kitchen"],
+  "property_type": "house",
+  "must_haves": ["garage", "3+ bedrooms"],
+  "nice_to_haves": ["view", "home office"]
+}}
