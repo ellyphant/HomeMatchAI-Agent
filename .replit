@@ -1,0 +1,10 @@
+run = "python app.py"
+entrypoint = "app.py"
+language = "python3"
+
+[nix]
+channel = "stable-23_11"
+
+[deployment]
+run = ["python", "app.py"]
+deploymentTarget = "cloudrun"
