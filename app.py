@@ -36,7 +36,7 @@ def analyze_buyer_preferences(buyer_input: str) -> dict:
     prompt = load_prompt('analyzer')
 
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model="hf:zai-org/GLM-4.5",
         max_tokens=1024,
         messages=[
             {
@@ -115,7 +115,7 @@ def generate_email(buyer_name: str, preferences: dict, matches: list) -> str:
         matches_text += f"   Why it matches: {', '.join(match['match_reasons'])}\n"
 
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model="hf:zai-org/GLM-4.5",
         max_tokens=2048,
         messages=[
             {
