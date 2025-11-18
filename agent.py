@@ -1,3 +1,4 @@
+# HomeMatch AI Agent - Property matching and email generation
 import anthropic
 import json
 import os
