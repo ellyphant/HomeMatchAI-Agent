@@ -10,8 +10,10 @@ load_dotenv()
 
 app = Flask(__name__)
 
-# Initialize Anthropic client
-client = anthropic.Anthropic()
+# Initialize Anthropic client with explicit API key
+client = anthropic.Anthropic(
+    api_key=os.environ.get("ANTHROPIC_API_KEY")
+)
 
 # Simple rate limiting (in-memory)
 rate_limit_cache = {}
