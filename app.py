@@ -47,6 +47,9 @@ def analyze_buyer_preferences(buyer_input: str) -> dict:
     )
 
     response_text = response.choices[0].message.content
+    if not response_text:
+        return {}
+
     try:
         start = response_text.find('{')
         end = response_text.rfind('}') + 1
@@ -131,7 +134,7 @@ def generate_email(buyer_name: str, preferences: dict, matches: list) -> str:
         ]
     )
 
-    return response.choices[0].message.content
+    return response.choices[0].message.content or "Email generation failed"
 
 def run_campaign(buyer_name: str, buyer_input: str) -> dict:
     """Main agent workflow."""
