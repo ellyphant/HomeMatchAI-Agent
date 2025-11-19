@@ -78,7 +78,7 @@ def match_properties(preferences: dict, properties: list) -> list:
     matches = []
 
     for prop in properties:
-        score = 0
+        score = 10  # Base score for all properties
         reasons = []
 
         max_budget = preferences.get('max_budget')
@@ -89,12 +89,16 @@ def match_properties(preferences: dict, properties: list) -> list:
             elif prop['price'] <= max_budget * 1.1:
                 score += 15
                 reasons.append("Slightly over budget but close")
+        elif not max_budget:
+            score += 10  # No budget specified, give some points
 
         min_bedrooms = preferences.get('min_bedrooms')
         if min_bedrooms and 'bedrooms' in prop:
             if prop['bedrooms'] >= min_bedrooms:
                 score += 20
                 reasons.append(f"{prop['bedrooms']} bedrooms meets requirement")
+        elif not min_bedrooms:
+            score += 5  # No bedrooms specified
 
         if 'preferred_locations' in preferences and 'neighborhood' in prop:
             if prop['neighborhood'].lower() in [loc.lower() for loc in preferences.get('preferred_locations', [])]:
@@ -108,12 +112,15 @@ def match_properties(preferences: dict, properties: list) -> list:
                 score += len(matching_features) * 5
                 reasons.append(f"Has: {', '.join(matching_features)}")
 
-        if score > 0:
-            matches.append({
-                'property': prop,
-                'score': score,
-                'match_reasons': reasons
-            })
+        # Always add property with at least a base reason
+        if not reasons:
+            reasons.append("Available listing")
+
+        matches.append({
+            'property': prop,
+            'score': score,
+            'match_reasons': reasons
+        })
 
     matches.sort(key=lambda x: x['score'], reverse=True)
     return matches[:5]
@@ -156,13 +163,7 @@ def run_campaign(buyer_name: str, buyer_input: str) -> dict:
         preferences = analyze_buyer_preferences(buyer_input)
         matches = match_properties(preferences, properties)
 
-        if not matches:
-            return {
-                'status': 'no_matches',
-                'buyer_name': buyer_name,
-                'preferences': preferences,
-                'message': 'No properties found matching your criteria.'
-            }
+        # Preferences may be empty if LLM failed to parse, but we still have matches
 
         return {
             'status': 'success',
