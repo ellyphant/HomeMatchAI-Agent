@@ -209,6 +209,11 @@
                 </div>
 
                 <div class="form-group">
+                    <label for="buyerEmail">Buyer's Email</label>
+                    <input type="email" id="buyerEmail" name="buyerEmail" placeholder="e.g., john@example.com" required>
+                </div>
+
+                <div class="form-group">
                     <label for="buyerInput">What are you looking for?</label>
                     <textarea id="buyerInput" name="buyerInput" placeholder="Describe your ideal home. Include details like budget, number of bedrooms, preferred neighborhoods, must-have features, etc." required></textarea>
                     <p class="hint">Example: "I'm looking for a 3-bedroom house in Pacific Heights or Marina with a budget of $1.5M. Must have a garage and modern kitchen. Would love a backyard and home office."</p>
@@ -238,6 +243,10 @@
                 <div class="result-section">
                     <h3>Personalized Email</h3>
                     <div class="email-preview" id="email"></div>
+                    <div style="margin-top: 15px; display: flex; gap: 10px;">
+                        <button type="button" id="copyBtn" onclick="copyEmail()" style="flex: 1; background: #28a745;">Copy Email</button>
+                        <button type="button" id="sendBtn" onclick="sendEmail()" style="flex: 1; background: #007bff;">Send Email</button>
+                    </div>
                 </div>
             </div>
 
@@ -253,11 +262,20 @@
         const errorDiv = document.getElementById('error');
         const submitBtn = document.getElementById('submitBtn');
 
+        // Store for email sending
+        let currentBuyerName = '';
+        let currentBuyerEmail = '';
+
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
 
             const buyerName = document.getElementById('buyerName').value;
+            const buyerEmail = document.getElementById('buyerEmail').value;
             const buyerInput = document.getElementById('buyerInput').value;
+
+            // Store for later use
+            currentBuyerName = buyerName;
+            currentBuyerEmail = buyerEmail;
 
             // Show loading state
             results.classList.add('show');
@@ -275,6 +293,7 @@
                     },
                     body: JSON.stringify({
                         buyer_name: buyerName,
+                        buyer_email: buyerEmail,
                         buyer_input: buyerInput
                     })
                 });
@@ -347,6 +366,63 @@
             // Display email
             const emailDiv = document.getElementById('email');
             emailDiv.textContent = data.email || 'No email generated';
+        }
+
+        function copyEmail() {
+            const emailText = document.getElementById('email').textContent;
+            navigator.clipboard.writeText(emailText).then(() => {
+                const copyBtn = document.getElementById('copyBtn');
+                copyBtn.textContent = 'Copied!';
+                copyBtn.style.background = '#218838';
+                setTimeout(() => {
+                    copyBtn.textContent = 'Copy Email';
+                    copyBtn.style.background = '#28a745';
+                }, 2000);
+            }).catch(err => {
+                alert('Failed to copy email');
+            });
+        }
+
+        async function sendEmail() {
+            const sendBtn = document.getElementById('sendBtn');
+            const emailContent = document.getElementById('email').textContent;
+
+            sendBtn.disabled = true;
+            sendBtn.textContent = 'Sending...';
+
+            try {
+                const response = await fetch('/send-email', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        to_email: currentBuyerEmail,
+                        to_name: currentBuyerName,
+                        email_content: emailContent
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                sendBtn.textContent = 'Sent!';
+                sendBtn.style.background = '#28a745';
+                setTimeout(() => {
+                    sendBtn.textContent = 'Send Email';
+                    sendBtn.style.background = '#007bff';
+                    sendBtn.disabled = false;
+                }, 2000);
+
+            } catch (error) {
+                alert('Failed to send email: ' + error.message);
+                sendBtn.textContent = 'Send Email';
+                sendBtn.style.background = '#007bff';
+                sendBtn.disabled = false;
+            }
         }
     </script>
 </body>

@@ -1,6 +1,8 @@
 from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
 from openai import OpenAI
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
 import json
 import os
 from datetime import datetime
@@ -223,6 +225,47 @@ def generate():
 def health():
     """Health check endpoint"""
     return jsonify({'status': 'healthy', 'service': 'homeMatch-ai'})
+
+@app.route('/send-email', methods=['POST'])
+def send_email():
+    """Send email via SendGrid"""
+    try:
+        data = request.json
+        to_email = data.get('to_email')
+        to_name = data.get('to_name')
+        email_content = data.get('email_content')
+
+        if not to_email or not email_content:
+            return jsonify({'error': 'Email and content are required'}), 400
+
+        # Extract subject from email content (first line after "Subject:")
+        subject = "New Property Matches for You!"
+        lines = email_content.split('\n')
+        for line in lines:
+            if line.lower().startswith('subject:'):
+                subject = line.replace('Subject:', '').replace('subject:', '').strip()
+                break
+
+        # Create SendGrid message
+        message = Mail(
+            from_email=os.environ.get('SENDGRID_FROM_EMAIL', 'noreply@homematch.ai'),
+            to_emails=to_email,
+            subject=subject,
+            plain_text_content=email_content
+        )
+
+        # Send email
+        sg = SendGridAPIClient(os.environ.get('SENDGRID_API_KEY'))
+        response = sg.send(message)
+
+        return jsonify({
+            'status': 'success',
+            'message': f'Email sent to {to_email}'
+        })
+
+    except Exception as e:
+        print(f"Error sending email: {e}")
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
