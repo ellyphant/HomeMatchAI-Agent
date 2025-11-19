@@ -33,6 +33,61 @@ client = OpenAI(
 # Simple rate limiting (in-memory)
 rate_limit_cache = {}
 
+# =============================================================================
+# REDPANDA EVENT STREAMING
+# =============================================================================
+
+# Initialize Redpanda/Kafka producer
+REDPANDA_ENABLED = False
+producer = None
+
+try:
+    from kafka import KafkaProducer
+    from kafka.errors import KafkaError
+
+    bootstrap_server = os.environ.get('REDPANDA_BOOTSTRAP_SERVER')
+    username = os.environ.get('REDPANDA_USERNAME')
+    password = os.environ.get('REDPANDA_PASSWORD')
+
+    if bootstrap_server and username and password:
+        producer = KafkaProducer(
+            bootstrap_servers=[bootstrap_server],
+            security_protocol='SASL_SSL',
+            sasl_mechanism='SCRAM-SHA-256',
+            sasl_plain_username=username,
+            sasl_plain_password=password,
+            value_serializer=lambda v: json.dumps(v).encode('utf-8'),
+            acks='all',
+            retries=3
+        )
+        REDPANDA_ENABLED = True
+        logger.info(f"Redpanda connected to {bootstrap_server}")
+    else:
+        logger.info("Redpanda credentials not configured - events disabled")
+except ImportError:
+    logger.info("kafka-python not installed - Redpanda events disabled")
+except Exception as e:
+    logger.warning(f"Redpanda connection failed: {e}")
+
+def publish_event(event_type: str, data: dict):
+    """Publish agent event to Redpanda for real-time streaming."""
+    if not REDPANDA_ENABLED or not producer:
+        return
+
+    event = {
+        'event_type': event_type,
+        'timestamp': datetime.utcnow().isoformat(),
+        'service': 'scout-ai',
+        'data': data
+    }
+
+    try:
+        future = producer.send('scout-agent-events', event)
+        # Don't block - fire and forget for performance
+        logger.debug(f"Published event: {event_type}")
+    except Exception as e:
+        logger.warning(f"Failed to publish event {event_type}: {e}")
+
 # Metrics store (in-memory for demo)
 metrics = {
     'total_requests': 0,
@@ -968,6 +1023,13 @@ def run_agent_cycle():
         steps.append({'action': 'Loading property database', 'status': 'complete', 'duration_ms': round(step_duration, 2)})
         logger.info(f"[{trace_id}] Loaded {len(properties)} properties in {step_duration:.2f}ms")
 
+        # Publish event to Redpanda
+        publish_event('properties_loaded', {
+            'trace_id': trace_id,
+            'buyer_name': buyer_name,
+            'property_count': len(properties)
+        })
+
         # Step 2: Analyze preferences (LLM call)
         step_start = time.time()
         llm_input = f"Buyer input: {buyer_input}"
@@ -992,6 +1054,14 @@ def run_agent_cycle():
         steps.append({'action': f'Analyzing preferences for {buyer_name}', 'status': 'complete', 'duration_ms': round(step_duration, 2)})
         logger.info(f"[{trace_id}] Analyzed preferences in {step_duration:.2f}ms")
 
+        # Publish event to Redpanda
+        publish_event('preferences_analyzed', {
+            'trace_id': trace_id,
+            'buyer_name': buyer_name,
+            'preferences': preferences,
+            'duration_ms': round(step_duration, 2)
+        })
+
         # Step 3: Match properties
         step_start = time.time()
         matches = match_properties(preferences, properties)
@@ -1004,6 +1074,14 @@ def run_agent_cycle():
         add_trace_step(trace, 'match_properties', step_duration, details={'matches_found': len(matches)})
         steps.append({'action': f'Found {len(matches)} matching properties', 'status': 'complete', 'duration_ms': round(step_duration, 2)})
         logger.info(f"[{trace_id}] Matched {len(matches)} properties in {step_duration:.2f}ms")
+
+        # Publish event to Redpanda
+        publish_event('properties_matched', {
+            'trace_id': trace_id,
+            'buyer_name': buyer_name,
+            'matches_count': len(matches),
+            'top_scores': [m['score'] for m in matches[:3]]
+        })
 
         if len(matches) < 2:
             return jsonify({
@@ -1137,6 +1215,14 @@ def run_agent_cycle():
         steps.append({'action': f'Sending email to {buyer_email}', 'status': 'complete', 'duration_ms': round(step_duration, 2)})
         steps.append({'action': f'Email delivered to {buyer_email}', 'status': 'complete'})
         logger.info(f"[{trace_id}] Sent email in {step_duration:.2f}ms")
+
+        # Publish event to Redpanda
+        publish_event('email_sent', {
+            'trace_id': trace_id,
+            'buyer_name': buyer_name,
+            'recipient': scrub_secrets(buyer_email),
+            'properties_sent': [m['address'] for m in selected_matches]
+        })
 
         # Finalize trace
         total_duration = (time.time() - cycle_start) * 1000

@@ -3,3 +3,4 @@ flask==3.0.0
 python-dotenv==1.0.0
 gunicorn==21.2.0
 sendgrid>=6.0.0
+kafka-python>=2.0.0
