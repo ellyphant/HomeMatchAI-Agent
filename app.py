@@ -707,8 +707,42 @@ def generate_email_endpoint():
 
 @app.route('/health')
 def health():
-    """Health check endpoint"""
-    return jsonify({'status': 'healthy', 'service': 'scout-ai'})
+    """Health check endpoint with dependency verification"""
+    checks = {
+        'server': True,
+        'properties_loaded': False,
+        'api_keys_configured': False,
+        'property_count': 0
+    }
+
+    # Check properties file loads correctly
+    try:
+        props = load_properties()
+        checks['properties_loaded'] = len(props) > 0
+        checks['property_count'] = len(props)
+    except Exception as e:
+        checks['properties_loaded'] = False
+        logger.warning(f"Health check: properties failed to load - {e}")
+
+    # Check API keys are configured
+    checks['api_keys_configured'] = all([
+        os.environ.get('SYNTHETIC_API_KEY'),
+        os.environ.get('SENDGRID_API_KEY'),
+        os.environ.get('SENDGRID_FROM_EMAIL')
+    ])
+
+    # Overall status
+    all_healthy = all([
+        checks['server'],
+        checks['properties_loaded'],
+        checks['api_keys_configured']
+    ])
+
+    return jsonify({
+        'status': 'healthy' if all_healthy else 'degraded',
+        'service': 'scout-ai',
+        'checks': checks
+    }), 200 if all_healthy else 503
 
 @app.route('/metrics')
 def get_metrics():
