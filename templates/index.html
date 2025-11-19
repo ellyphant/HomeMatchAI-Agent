@@ -128,6 +128,59 @@
             border-bottom: 2px solid #f0f0f0;
         }
 
+        .tab-container {
+            margin-bottom: 15px;
+        }
+
+        .tab-buttons {
+            display: flex;
+            border-bottom: 2px solid #f0f0f0;
+            margin-bottom: 15px;
+        }
+
+        .tab-btn {
+            background: none;
+            border: none;
+            padding: 10px 20px;
+            font-size: 1rem;
+            font-weight: 400;
+            color: #888;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            transition: all 0.3s;
+            width: auto;
+        }
+
+        .tab-btn:hover {
+            color: #667eea;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .tab-btn.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+            font-weight: 500;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        #preferences ul {
+            padding-left: 25px;
+            margin: 0;
+        }
+
+        #preferences li {
+            margin-bottom: 8px;
+        }
+
         .match-item {
             background: #f8f9fa;
             padding: 15px;
@@ -554,7 +607,7 @@
             <form id="searchForm">
                 <div class="form-group">
                     <select id="savedBuyers" onchange="loadSavedBuyer()">
-                        <option value="">-- Select a saved buyer --</option>
+                        <option value="">-- Select a Saved Buyer --</option>
                     </select>
                 </div>
 
@@ -597,8 +650,28 @@ Example: I'm looking for a 3-bedroom house in Pacific Heights or Marina with a b
 
             <div id="resultContent" style="display: none;">
                 <div class="result-section">
-                    <h3>Buyer's Preferences</h3>
-                    <div id="preferences"></div>
+                    <div class="tab-container">
+                        <div class="tab-buttons">
+                            <button type="button" class="tab-btn active" onclick="switchTab('preferences')">Buyer's Preferences</button>
+                            <button type="button" class="tab-btn" onclick="switchTab('emailLog')">Email Log</button>
+                            <button type="button" class="tab-btn" onclick="switchTab('analytics')">Engagement Analytics</button>
+                        </div>
+                        <div id="preferencesTab" class="tab-content active">
+                            <div id="preferences"></div>
+                        </div>
+                        <div id="emailLogTab" class="tab-content">
+                            <div style="text-align: center; padding: 30px; color: #888;">
+                                <div style="background: #f0f0f0; display: inline-block; padding: 8px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 500;">Coming Soon</div>
+                                <p style="margin-top: 15px; font-size: 0.9rem;">View history of all emails sent to this buyer</p>
+                            </div>
+                        </div>
+                        <div id="analyticsTab" class="tab-content">
+                            <div style="text-align: center; padding: 30px; color: #888;">
+                                <div style="background: #f0f0f0; display: inline-block; padding: 8px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 500;">Coming Soon</div>
+                                <p style="margin-top: 15px; font-size: 0.9rem;">Track email opens, clicks, and buyer engagement</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Agent Campaign Section -->
@@ -608,7 +681,7 @@ Example: I'm looking for a 3-bedroom house in Pacific Heights or Marina with a b
 
                     <div class="agent-campaign-controls">
                         <div class="form-group">
-                            <label for="campaignFrequency">Email Frequency</label>
+                            <label for="campaignFrequency">Email Frequency if Listings Match</label>
                             <select id="campaignFrequency">
                                 <option value="5000">Every 5 seconds (Demo)</option>
                                 <option value="twice_weekly">Twice a week</option>
@@ -639,7 +712,7 @@ Example: I'm looking for a 3-bedroom house in Pacific Heights or Marina with a b
                     </div>
                 </div>
 
-                <div class="result-section">
+                <div class="result-section" id="matchesSection">
                     <h3>Top Matching Properties</h3>
                     <div class="selection-info" style="background: #e8f5e9; color: #2e7d32;">Agent will automatically select the top 2 properties based on match score</div>
                     <div id="matches"></div>
@@ -894,6 +967,32 @@ Example: I'm looking for a 3-bedroom house in Pacific Heights or Marina with a b
                 matchesDiv.innerHTML = matchesHtml;
             } else {
                 matchesDiv.innerHTML = '<p>No matching properties found. Try adjusting your criteria.</p>';
+            }
+        }
+
+        function switchTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(tabName + 'Tab').classList.add('active');
+
+            // Show/hide campaign and properties sections based on tab
+            const campaignSection = document.querySelector('.agent-campaign-section');
+            const propertiesSection = document.getElementById('matchesSection');
+
+            if (tabName === 'preferences') {
+                if (campaignSection) campaignSection.style.display = 'block';
+                if (propertiesSection) propertiesSection.style.display = 'block';
+            } else {
+                if (campaignSection) campaignSection.style.display = 'none';
+                if (propertiesSection) propertiesSection.style.display = 'none';
             }
         }
 
