@@ -35,30 +35,41 @@ def analyze_buyer_preferences(buyer_input: str) -> dict:
     """Use LLM to extract structured preferences from buyer input."""
     prompt = load_prompt('analyzer')
 
-    response = client.chat.completions.create(
-        model="hf:zai-org/GLM-4.5",
-        max_tokens=1024,
-        messages=[
-            {
-                "role": "user",
-                "content": prompt.format(buyer_input=buyer_input)
-            }
-        ]
-    )
-
-    response_text = response.choices[0].message.content
-    if not response_text:
-        return {}
-
     try:
+        response = client.chat.completions.create(
+            model="hf:zai-org/GLM-4.5",
+            max_tokens=1024,
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt.format(buyer_input=buyer_input)
+                }
+            ]
+        )
+
+        if not response.choices or not response.choices[0].message:
+            print("No response from model")
+            return {}
+
+        response_text = response.choices[0].message.content
+        if not response_text:
+            print("Empty response content")
+            return {}
+
         start = response_text.find('{')
         end = response_text.rfind('}') + 1
         if start != -1 and end > start:
             return json.loads(response_text[start:end])
-    except json.JSONDecodeError:
-        pass
 
-    return {}
+        print(f"No JSON found in response: {response_text[:200]}")
+        return {}
+
+    except json.JSONDecodeError as e:
+        print(f"JSON decode error: {e}")
+        return {}
+    except Exception as e:
+        print(f"Error in analyze_buyer_preferences: {e}")
+        return {}
 
 def match_properties(preferences: dict, properties: list) -> list:
     """Match properties against buyer preferences."""
