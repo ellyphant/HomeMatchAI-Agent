@@ -246,6 +246,200 @@
             color: #888;
             margin-top: 8px;
         }
+
+        /* Agent Mode Styles */
+        .agent-card {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: white;
+        }
+
+        .agent-card h2 {
+            color: #00d4ff;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .agent-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .agent-controls label {
+            color: #a0a0a0;
+            font-size: 0.9rem;
+        }
+
+        .agent-controls input, .agent-controls select {
+            background: #0f3460;
+            border: 1px solid #00d4ff;
+            color: white;
+        }
+
+        .agent-controls input:focus, .agent-controls select:focus {
+            border-color: #00ff88;
+        }
+
+        .buyer-queue {
+            background: #0f3460;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .buyer-queue h4 {
+            color: #00d4ff;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+        }
+
+        .queue-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px;
+            background: #16213e;
+            border-radius: 4px;
+            margin-bottom: 5px;
+        }
+
+        .queue-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+        }
+
+        .queue-item-info {
+            flex: 1;
+        }
+
+        .queue-item-name {
+            font-weight: 600;
+            color: white;
+        }
+
+        .queue-item-email {
+            font-size: 0.8rem;
+            color: #a0a0a0;
+        }
+
+        .queue-item-status {
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: #333;
+        }
+
+        .queue-item-status.pending { background: #555; }
+        .queue-item-status.processing { background: #f39c12; color: #000; }
+        .queue-item-status.complete { background: #00ff88; color: #000; }
+        .queue-item-status.error { background: #e74c3c; }
+
+        .agent-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .agent-buttons button {
+            flex: 1;
+        }
+
+        #startAgentBtn {
+            background: linear-gradient(135deg, #00ff88 0%, #00d4ff 100%);
+            color: #000;
+            font-weight: 700;
+        }
+
+        #stopAgentBtn {
+            background: #e74c3c;
+        }
+
+        #stopAgentBtn:disabled {
+            background: #555;
+        }
+
+        .activity-log {
+            background: #0a0a0a;
+            border-radius: 8px;
+            padding: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.85rem;
+        }
+
+        .activity-log h4 {
+            color: #00d4ff;
+            margin-bottom: 10px;
+            position: sticky;
+            top: 0;
+            background: #0a0a0a;
+            padding-bottom: 5px;
+        }
+
+        .log-entry {
+            padding: 5px 0;
+            border-bottom: 1px solid #222;
+            display: flex;
+            gap: 10px;
+        }
+
+        .log-time {
+            color: #666;
+            flex-shrink: 0;
+        }
+
+        .log-message {
+            color: #00ff88;
+        }
+
+        .log-message.info { color: #00d4ff; }
+        .log-message.success { color: #00ff88; }
+        .log-message.error { color: #e74c3c; }
+        .log-message.processing { color: #f39c12; }
+
+        .agent-status {
+            text-align: center;
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+
+        .agent-status.idle {
+            background: #333;
+            color: #a0a0a0;
+        }
+
+        .agent-status.running {
+            background: #00ff88;
+            color: #000;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .progress-bar {
+            height: 4px;
+            background: #333;
+            border-radius: 2px;
+            margin-bottom: 15px;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00ff88, #00d4ff);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
     </style>
 </head>
 <body>
@@ -285,6 +479,62 @@
                     <button type="button" id="saveBtn" onclick="saveBuyer()" style="flex: 1; background: #6c757d;">Save Buyer</button>
                 </div>
             </form>
+        </div>
+
+        <!-- Agent Mode Panel -->
+        <div class="card agent-card">
+            <h2>AI Agent Mode</h2>
+
+            <div class="agent-status idle" id="agentStatus">
+                Agent Idle - Configure and Start
+            </div>
+
+            <div class="progress-bar">
+                <div class="progress-bar-fill" id="progressBar"></div>
+            </div>
+
+            <div class="agent-controls">
+                <div class="form-group">
+                    <label for="agentFrequency">Email Interval (seconds)</label>
+                    <select id="agentFrequency">
+                        <option value="3000">3 seconds</option>
+                        <option value="5000" selected>5 seconds</option>
+                        <option value="7000">7 seconds</option>
+                        <option value="10000">10 seconds</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="agentMaxEmails">Max Emails to Send</label>
+                    <select id="agentMaxEmails">
+                        <option value="1">1 email</option>
+                        <option value="2">2 emails</option>
+                        <option value="3" selected>3 emails</option>
+                        <option value="5">5 emails</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="buyer-queue" id="buyerQueue">
+                <h4>Buyer Queue (select buyers to process)</h4>
+                <div id="queueList">
+                    <p style="color: #666; text-align: center;">No saved buyers. Save buyers above to add them to the queue.</p>
+                </div>
+            </div>
+
+            <div class="agent-buttons">
+                <button type="button" id="startAgentBtn" onclick="startAgent()">Start Agent</button>
+                <button type="button" id="stopAgentBtn" onclick="stopAgent()" disabled>Stop Agent</button>
+            </div>
+
+            <div class="activity-log" id="activityLog">
+                <h4>Agent Activity Log</h4>
+                <div id="logEntries">
+                    <div class="log-entry">
+                        <span class="log-time">--:--:--</span>
+                        <span class="log-message info">Agent initialized. Select buyers and click Start.</span>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="card results" id="results">
@@ -335,8 +585,19 @@
         let currentMatches = [];
         let currentPreferences = {};
 
+        // Agent Mode state
+        let agentRunning = false;
+        let agentInterval = null;
+        let agentQueue = [];
+        let agentCurrentIndex = 0;
+        let agentEmailsSent = 0;
+        let agentMaxEmails = 3;
+
         // Load saved buyers on page load
-        document.addEventListener('DOMContentLoaded', loadSavedBuyersList);
+        document.addEventListener('DOMContentLoaded', () => {
+            loadSavedBuyersList();
+            loadBuyerQueue();
+        });
 
         function loadSavedBuyersList() {
             const buyers = JSON.parse(localStorage.getItem('savedBuyers') || '{}');
@@ -629,6 +890,235 @@
                 sendBtn.disabled = false;
             }
         }
+
+        // Agent Mode Functions
+        function loadBuyerQueue() {
+            const buyers = JSON.parse(localStorage.getItem('savedBuyers') || '{}');
+            const queueList = document.getElementById('queueList');
+
+            if (Object.keys(buyers).length === 0) {
+                queueList.innerHTML = '<p style="color: #666; text-align: center;">No saved buyers. Save buyers above to add them to the queue.</p>';
+                return;
+            }
+
+            let html = '';
+            Object.keys(buyers).forEach((name, index) => {
+                const buyer = buyers[name];
+                html += `
+                    <div class="queue-item" id="queue-${index}">
+                        <input type="checkbox" id="queueCheck-${index}" data-name="${name}" checked>
+                        <div class="queue-item-info">
+                            <div class="queue-item-name">${buyer.name}</div>
+                            <div class="queue-item-email">${buyer.email || 'No email'}</div>
+                        </div>
+                        <span class="queue-item-status pending" id="queueStatus-${index}">Pending</span>
+                    </div>
+                `;
+            });
+            queueList.innerHTML = html;
+        }
+
+        function addLogEntry(message, type = 'info') {
+            const logEntries = document.getElementById('logEntries');
+            const time = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `
+                <span class="log-time">${time}</span>
+                <span class="log-message ${type}">${message}</span>
+            `;
+            logEntries.appendChild(entry);
+            logEntries.scrollTop = logEntries.scrollHeight;
+        }
+
+        function updateAgentStatus(text, isRunning) {
+            const status = document.getElementById('agentStatus');
+            status.textContent = text;
+            status.className = isRunning ? 'agent-status running' : 'agent-status idle';
+        }
+
+        function updateProgress() {
+            const progressBar = document.getElementById('progressBar');
+            const percent = agentMaxEmails > 0 ? (agentEmailsSent / agentMaxEmails) * 100 : 0;
+            progressBar.style.width = `${percent}%`;
+        }
+
+        function startAgent() {
+            // Get selected buyers
+            const checkboxes = document.querySelectorAll('#queueList input[type="checkbox"]:checked');
+            if (checkboxes.length === 0) {
+                alert('Please select at least one buyer from the queue');
+                return;
+            }
+
+            const buyers = JSON.parse(localStorage.getItem('savedBuyers') || '{}');
+            agentQueue = Array.from(checkboxes).map(cb => {
+                const name = cb.dataset.name;
+                return buyers[name];
+            }).filter(b => b && b.email);
+
+            if (agentQueue.length === 0) {
+                alert('No valid buyers with emails found');
+                return;
+            }
+
+            // Get settings
+            const frequency = parseInt(document.getElementById('agentFrequency').value);
+            agentMaxEmails = parseInt(document.getElementById('agentMaxEmails').value);
+
+            // Reset state
+            agentCurrentIndex = 0;
+            agentEmailsSent = 0;
+            agentRunning = true;
+
+            // Update UI
+            document.getElementById('startAgentBtn').disabled = true;
+            document.getElementById('stopAgentBtn').disabled = false;
+            updateAgentStatus(`Agent Running - 0/${agentMaxEmails} emails sent`, true);
+            updateProgress();
+
+            // Reset queue statuses
+            document.querySelectorAll('.queue-item-status').forEach(el => {
+                el.className = 'queue-item-status pending';
+                el.textContent = 'Pending';
+            });
+
+            addLogEntry(`Agent started. Processing ${Math.min(agentQueue.length, agentMaxEmails)} buyers at ${frequency/1000}s intervals`, 'info');
+
+            // Start processing
+            processNextBuyer();
+        }
+
+        function stopAgent() {
+            agentRunning = false;
+            if (agentInterval) {
+                clearTimeout(agentInterval);
+                agentInterval = null;
+            }
+
+            document.getElementById('startAgentBtn').disabled = false;
+            document.getElementById('stopAgentBtn').disabled = true;
+            updateAgentStatus('Agent Stopped', false);
+
+            addLogEntry('Agent stopped by user', 'error');
+        }
+
+        async function processNextBuyer() {
+            if (!agentRunning) return;
+
+            if (agentEmailsSent >= agentMaxEmails || agentCurrentIndex >= agentQueue.length) {
+                // Done
+                agentRunning = false;
+                document.getElementById('startAgentBtn').disabled = false;
+                document.getElementById('stopAgentBtn').disabled = true;
+                updateAgentStatus(`Complete - ${agentEmailsSent}/${agentMaxEmails} emails sent`, false);
+                addLogEntry(`Agent completed! Sent ${agentEmailsSent} emails successfully.`, 'success');
+                return;
+            }
+
+            const buyer = agentQueue[agentCurrentIndex];
+            const queueIndex = Array.from(document.querySelectorAll('#queueList input[type="checkbox"]'))
+                .findIndex(cb => cb.dataset.name === buyer.name);
+
+            // Update status to processing
+            if (queueIndex >= 0) {
+                const statusEl = document.getElementById(`queueStatus-${queueIndex}`);
+                if (statusEl) {
+                    statusEl.className = 'queue-item-status processing';
+                    statusEl.textContent = 'Processing';
+                }
+            }
+
+            addLogEntry(`Processing ${buyer.name}...`, 'processing');
+
+            try {
+                // Run the full agent cycle
+                const response = await fetch('/run-agent-cycle', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        buyer_name: buyer.name,
+                        buyer_email: buyer.email,
+                        buyer_input: buyer.input
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                // Log the steps
+                if (data.steps) {
+                    data.steps.forEach(step => {
+                        addLogEntry(step.action, 'success');
+                    });
+                }
+
+                // Update status
+                if (queueIndex >= 0) {
+                    const statusEl = document.getElementById(`queueStatus-${queueIndex}`);
+                    if (statusEl) {
+                        statusEl.className = 'queue-item-status complete';
+                        statusEl.textContent = 'Sent';
+                    }
+                }
+
+                agentEmailsSent++;
+                updateAgentStatus(`Agent Running - ${agentEmailsSent}/${agentMaxEmails} emails sent`, true);
+                updateProgress();
+
+                addLogEntry(`Email sent to ${buyer.email}`, 'success');
+
+            } catch (error) {
+                addLogEntry(`Error for ${buyer.name}: ${error.message}`, 'error');
+
+                if (queueIndex >= 0) {
+                    const statusEl = document.getElementById(`queueStatus-${queueIndex}`);
+                    if (statusEl) {
+                        statusEl.className = 'queue-item-status error';
+                        statusEl.textContent = 'Error';
+                    }
+                }
+            }
+
+            agentCurrentIndex++;
+
+            // Schedule next buyer
+            if (agentRunning && agentEmailsSent < agentMaxEmails && agentCurrentIndex < agentQueue.length) {
+                const frequency = parseInt(document.getElementById('agentFrequency').value);
+                addLogEntry(`Waiting ${frequency/1000} seconds before next email...`, 'info');
+                agentInterval = setTimeout(processNextBuyer, frequency);
+            } else {
+                processNextBuyer(); // Check if done
+            }
+        }
+
+        // Update queue when saving buyers
+        const originalSaveBuyer = saveBuyer;
+        saveBuyer = function() {
+            const name = document.getElementById('buyerName').value;
+            const email = document.getElementById('buyerEmail').value;
+            const input = document.getElementById('buyerInput').value;
+
+            if (!name) {
+                alert('Please enter a buyer name to save');
+                return;
+            }
+
+            const buyers = JSON.parse(localStorage.getItem('savedBuyers') || '{}');
+            buyers[name] = { name, email, input };
+            localStorage.setItem('savedBuyers', JSON.stringify(buyers));
+
+            loadSavedBuyersList();
+            loadBuyerQueue();
+            document.getElementById('savedBuyers').value = name;
+
+            alert(`Buyer "${name}" saved!`);
+        };
     </script>
 </body>
 </html>

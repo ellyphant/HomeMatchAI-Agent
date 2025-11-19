@@ -329,6 +329,143 @@ def health():
     """Health check endpoint"""
     return jsonify({'status': 'healthy', 'service': 'homeMatch-ai'})
 
+@app.route('/run-agent-cycle', methods=['POST'])
+def run_agent_cycle():
+    """Run full agent cycle for one buyer: analyze -> match -> generate -> send email"""
+    try:
+        data = request.json
+        buyer_name = data.get('buyer_name', 'Valued Client')
+        buyer_email = data.get('buyer_email')
+        buyer_input = data.get('buyer_input', '')
+
+        if not buyer_input:
+            return jsonify({'error': 'Buyer input is required', 'step': 'validation'}), 400
+
+        if not buyer_email:
+            return jsonify({'error': 'Buyer email is required', 'step': 'validation'}), 400
+
+        steps = []
+
+        # Step 1: Load properties
+        steps.append({'action': 'Loading property database', 'status': 'complete'})
+        properties = load_properties()
+
+        # Step 2: Analyze preferences
+        steps.append({'action': f'Analyzing preferences for {buyer_name}', 'status': 'complete'})
+        preferences = analyze_buyer_preferences(buyer_input)
+
+        # Step 3: Match properties
+        matches = match_properties(preferences, properties)
+        steps.append({'action': f'Found {len(matches)} matching properties', 'status': 'complete'})
+
+        if len(matches) < 2:
+            return jsonify({
+                'error': 'Not enough matching properties found',
+                'step': 'matching',
+                'steps': steps
+            }), 400
+
+        # Step 4: Auto-select top 2 properties
+        selected_matches = [
+            {
+                'address': m['property'].get('address'),
+                'price': m['property'].get('price'),
+                'score': m['score'],
+                'reasons': m['match_reasons'],
+                'image_url': m['property'].get('image_url'),
+                'bedrooms': m['property'].get('bedrooms'),
+                'bathrooms': m['property'].get('bathrooms'),
+                'sqft': m['property'].get('sqft'),
+                'description': m['property'].get('description'),
+                'features': m['property'].get('features', [])
+            }
+            for m in matches[:2]
+        ]
+        steps.append({'action': f'Selected top 2 properties (scores: {matches[0]["score"]}, {matches[1]["score"]})', 'status': 'complete'})
+
+        # Step 5: Generate email
+        steps.append({'action': 'Generating personalized email', 'status': 'complete'})
+        matches_text = ""
+        for i, match in enumerate(selected_matches, 1):
+            matches_text += f"\n{i}. {match.get('address', 'Address TBD')}\n"
+            matches_text += f"   Price: ${match.get('price', 0):,}\n"
+            matches_text += f"   Bedrooms: {match.get('bedrooms', 'N/A')} | Bathrooms: {match.get('bathrooms', 'N/A')}\n"
+            matches_text += f"   Sqft: {match.get('sqft', 'N/A')}\n"
+            matches_text += f"   Features: {', '.join(match.get('features', []))}\n"
+            matches_text += f"   Description: {match.get('description', '')}\n"
+            matches_text += f"   Image: {match.get('image_url', '')}\n"
+            matches_text += f"   Why it matches: {', '.join(match.get('reasons', []))}\n"
+
+        prompt = load_prompt('email_gen')
+        response = client.chat.completions.create(
+            model="hf:zai-org/GLM-4.5",
+            max_tokens=4096,
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt.format(
+                        buyer_name=buyer_name,
+                        preferences=json.dumps(preferences, indent=2),
+                        matches=matches_text
+                    )
+                }
+            ]
+        )
+        email_content = response.choices[0].message.content or "Email generation failed"
+
+        # Step 6: Send email
+        steps.append({'action': f'Sending email to {buyer_email}', 'status': 'complete'})
+
+        # Extract subject
+        subject = "New Property Matches for You!"
+        lines = email_content.split('\n')
+        for line in lines:
+            if line.lower().startswith('subject:'):
+                subject = line.replace('Subject:', '').replace('subject:', '').strip()
+                break
+
+        # Check if content is HTML
+        is_html = '<' in email_content and '>' in email_content
+
+        # Create and send email
+        if is_html:
+            message = Mail(
+                from_email=os.environ.get('SENDGRID_FROM_EMAIL', 'noreply@homematch.ai'),
+                to_emails=buyer_email,
+                subject=subject,
+                html_content=email_content
+            )
+        else:
+            message = Mail(
+                from_email=os.environ.get('SENDGRID_FROM_EMAIL', 'noreply@homematch.ai'),
+                to_emails=buyer_email,
+                subject=subject,
+                plain_text_content=email_content
+            )
+
+        sg = SendGridAPIClient(os.environ.get('SENDGRID_API_KEY'))
+        sg.send(message)
+
+        steps.append({'action': f'Email delivered to {buyer_email}', 'status': 'complete'})
+
+        return jsonify({
+            'status': 'success',
+            'buyer_name': buyer_name,
+            'buyer_email': buyer_email,
+            'properties_matched': len(matches),
+            'properties_selected': [m['address'] for m in selected_matches],
+            'steps': steps,
+            'timestamp': datetime.utcnow().isoformat()
+        })
+
+    except Exception as e:
+        print(f"Error in agent cycle: {e}")
+        return jsonify({
+            'error': str(e),
+            'step': 'unknown',
+            'steps': steps if 'steps' in locals() else []
+        }), 500
+
 @app.route('/send-email', methods=['POST'])
 def send_email():
     """Send email via SendGrid"""
