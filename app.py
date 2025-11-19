@@ -5,10 +5,22 @@ from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail, Email
 import json
 import os
+import re
+import time
+import uuid
+import logging
 from datetime import datetime
 
 # Load environment variables
 load_dotenv()
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
@@ -20,6 +32,64 @@ client = OpenAI(
 
 # Simple rate limiting (in-memory)
 rate_limit_cache = {}
+
+# Metrics store (in-memory for demo)
+metrics = {
+    'total_requests': 0,
+    'successful_emails': 0,
+    'failed_emails': 0,
+    'llm_calls': 0,
+    'llm_errors': 0,
+    'llm_fallbacks': 0,
+    'avg_latency_ms': 0,
+    'total_latency_ms': 0,
+    'traces': []
+}
+
+def scrub_secrets(text):
+    """Remove sensitive data from text for logging."""
+    if not text:
+        return text
+    # Scrub email addresses
+    text = re.sub(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', '[EMAIL]', str(text))
+    # Scrub API keys
+    text = re.sub(r'(api[_-]?key|token|secret)["\s:=]+["\']?[\w-]{20,}["\']?', r'\1=[REDACTED]', str(text), flags=re.IGNORECASE)
+    return text
+
+def create_trace(trace_id, buyer_name):
+    """Create a new trace for observability."""
+    return {
+        'trace_id': trace_id,
+        'buyer_name': buyer_name,
+        'start_time': datetime.utcnow().isoformat(),
+        'steps': [],
+        'llm_calls': [],
+        'total_duration_ms': 0,
+        'status': 'in_progress'
+    }
+
+def add_trace_step(trace, step_name, duration_ms, status='success', details=None):
+    """Add a step to the trace."""
+    trace['steps'].append({
+        'step': step_name,
+        'duration_ms': round(duration_ms, 2),
+        'status': status,
+        'timestamp': datetime.utcnow().isoformat(),
+        'details': details
+    })
+
+def log_llm_call(trace, call_type, input_text, output_text, duration_ms, tokens_used=None):
+    """Log LLM input/output with secrets scrubbed."""
+    trace['llm_calls'].append({
+        'type': call_type,
+        'input_preview': scrub_secrets(input_text[:500] + '...' if len(input_text) > 500 else input_text),
+        'output_preview': scrub_secrets(output_text[:500] + '...' if len(output_text) > 500 else output_text),
+        'input_length': len(input_text),
+        'output_length': len(output_text),
+        'duration_ms': round(duration_ms, 2),
+        'tokens_used': tokens_used,
+        'timestamp': datetime.utcnow().isoformat()
+    })
 
 def load_properties():
     """Load property listings from JSON file"""
@@ -341,11 +411,36 @@ def generate_email_endpoint():
 @app.route('/health')
 def health():
     """Health check endpoint"""
-    return jsonify({'status': 'healthy', 'service': 'homeMatch-ai'})
+    return jsonify({'status': 'healthy', 'service': 'scout-ai'})
+
+@app.route('/metrics')
+def get_metrics():
+    """Get observability metrics"""
+    return jsonify({
+        'metrics': {
+            'total_requests': metrics['total_requests'],
+            'successful_emails': metrics['successful_emails'],
+            'failed_emails': metrics['failed_emails'],
+            'success_rate': round(metrics['successful_emails'] / max(metrics['total_requests'], 1) * 100, 2),
+            'llm_calls': metrics['llm_calls'],
+            'llm_errors': metrics['llm_errors'],
+            'llm_fallbacks': metrics['llm_fallbacks'],
+            'avg_latency_ms': round(metrics['total_latency_ms'] / max(metrics['total_requests'], 1), 2)
+        },
+        'recent_traces': metrics['traces'][-10:],  # Last 10 traces
+        'timestamp': datetime.utcnow().isoformat()
+    })
 
 @app.route('/run-agent-cycle', methods=['POST'])
 def run_agent_cycle():
     """Run full agent cycle for one buyer: analyze -> match -> generate -> send email"""
+    cycle_start = time.time()
+    trace_id = str(uuid.uuid4())[:8]
+    trace = create_trace(trace_id, 'buyer')
+
+    metrics['total_requests'] += 1
+    logger.info(f"[{trace_id}] Starting agent cycle")
+
     try:
         data = request.json
         buyer_name = data.get('buyer_name', 'Valued Client')
@@ -354,30 +449,55 @@ def run_agent_cycle():
         personalization_style = data.get('personalization_style', '')
         exclude_addresses = data.get('exclude_addresses', [])  # For sending different properties in subsequent emails
 
+        trace['buyer_name'] = buyer_name
+
         if not buyer_input:
-            return jsonify({'error': 'Buyer input is required', 'step': 'validation'}), 400
+            metrics['failed_emails'] += 1
+            return jsonify({'error': 'Buyer input is required', 'step': 'validation', 'trace_id': trace_id}), 400
 
         if not buyer_email:
-            return jsonify({'error': 'Buyer email is required', 'step': 'validation'}), 400
+            metrics['failed_emails'] += 1
+            return jsonify({'error': 'Buyer email is required', 'step': 'validation', 'trace_id': trace_id}), 400
 
         steps = []
 
         # Step 1: Load properties
-        steps.append({'action': 'Loading property database', 'status': 'complete'})
+        step_start = time.time()
         properties = load_properties()
+        step_duration = (time.time() - step_start) * 1000
+        add_trace_step(trace, 'load_properties', step_duration, details={'count': len(properties)})
+        steps.append({'action': 'Loading property database', 'status': 'complete', 'duration_ms': round(step_duration, 2)})
+        logger.info(f"[{trace_id}] Loaded {len(properties)} properties in {step_duration:.2f}ms")
 
-        # Step 2: Analyze preferences
-        steps.append({'action': f'Analyzing preferences for {buyer_name}', 'status': 'complete'})
+        # Step 2: Analyze preferences (LLM call)
+        step_start = time.time()
+        llm_input = f"Buyer input: {buyer_input}"
         preferences = analyze_buyer_preferences(buyer_input)
+        step_duration = (time.time() - step_start) * 1000
+        metrics['llm_calls'] += 1
+
+        # Check if fallback was used
+        if not preferences or len(preferences) == 0:
+            metrics['llm_fallbacks'] += 1
+            logger.warning(f"[{trace_id}] LLM fallback triggered for preference analysis")
+
+        log_llm_call(trace, 'preference_analysis', llm_input, json.dumps(preferences), step_duration)
+        add_trace_step(trace, 'analyze_preferences', step_duration, details={'preferences_extracted': len(preferences)})
+        steps.append({'action': f'Analyzing preferences for {buyer_name}', 'status': 'complete', 'duration_ms': round(step_duration, 2)})
+        logger.info(f"[{trace_id}] Analyzed preferences in {step_duration:.2f}ms")
 
         # Step 3: Match properties
+        step_start = time.time()
         matches = match_properties(preferences, properties)
 
         # Filter out excluded properties
         if exclude_addresses:
             matches = [m for m in matches if m['property'].get('address') not in exclude_addresses]
 
-        steps.append({'action': f'Found {len(matches)} matching properties', 'status': 'complete'})
+        step_duration = (time.time() - step_start) * 1000
+        add_trace_step(trace, 'match_properties', step_duration, details={'matches_found': len(matches)})
+        steps.append({'action': f'Found {len(matches)} matching properties', 'status': 'complete', 'duration_ms': round(step_duration, 2)})
+        logger.info(f"[{trace_id}] Matched {len(matches)} properties in {step_duration:.2f}ms")
 
         if len(matches) < 2:
             return jsonify({
@@ -404,8 +524,8 @@ def run_agent_cycle():
         ]
         steps.append({'action': f'Selected top 2 properties (scores: {matches[0]["score"]}, {matches[1]["score"]})', 'status': 'complete'})
 
-        # Step 5: Generate email
-        steps.append({'action': 'Generating personalized email', 'status': 'complete'})
+        # Step 5: Generate email (LLM call)
+        step_start = time.time()
         matches_text = ""
         for i, match in enumerate(selected_matches, 1):
             matches_text += f"\n{i}. {match.get('address', 'Address TBD')}\n"
@@ -440,9 +560,16 @@ def run_agent_cycle():
             ]
         )
         email_content = response.choices[0].message.content or "Email generation failed"
+        step_duration = (time.time() - step_start) * 1000
+        metrics['llm_calls'] += 1
+
+        log_llm_call(trace, 'email_generation', prompt_content, email_content, step_duration)
+        add_trace_step(trace, 'generate_email', step_duration, details={'output_length': len(email_content)})
+        steps.append({'action': 'Generating personalized email', 'status': 'complete', 'duration_ms': round(step_duration, 2)})
+        logger.info(f"[{trace_id}] Generated email ({len(email_content)} chars) in {step_duration:.2f}ms")
 
         # Step 6: Send email
-        steps.append({'action': f'Sending email to {buyer_email}', 'status': 'complete'})
+        step_start = time.time()
 
         # Extract subject
         subject = "New Property Matches for You!"
@@ -478,7 +605,26 @@ def run_agent_cycle():
         sg = SendGridAPIClient(os.environ.get('SENDGRID_API_KEY'))
         sg.send(message)
 
+        step_duration = (time.time() - step_start) * 1000
+        add_trace_step(trace, 'send_email', step_duration, details={'recipient': scrub_secrets(buyer_email)})
+        steps.append({'action': f'Sending email to {buyer_email}', 'status': 'complete', 'duration_ms': round(step_duration, 2)})
         steps.append({'action': f'Email delivered to {buyer_email}', 'status': 'complete'})
+        logger.info(f"[{trace_id}] Sent email in {step_duration:.2f}ms")
+
+        # Finalize trace
+        total_duration = (time.time() - cycle_start) * 1000
+        trace['total_duration_ms'] = round(total_duration, 2)
+        trace['status'] = 'success'
+        trace['end_time'] = datetime.utcnow().isoformat()
+
+        # Update metrics
+        metrics['successful_emails'] += 1
+        metrics['total_latency_ms'] += total_duration
+        metrics['traces'].append(trace)
+        if len(metrics['traces']) > 100:  # Keep only last 100 traces
+            metrics['traces'] = metrics['traces'][-100:]
+
+        logger.info(f"[{trace_id}] Agent cycle completed in {total_duration:.2f}ms")
 
         return jsonify({
             'status': 'success',
@@ -488,15 +634,27 @@ def run_agent_cycle():
             'properties_selected': [m['address'] for m in selected_matches],
             'steps': steps,
             'email_content': email_content,
-            'timestamp': datetime.utcnow().isoformat()
+            'timestamp': datetime.utcnow().isoformat(),
+            'trace_id': trace_id,
+            'total_duration_ms': round(total_duration, 2)
         })
 
     except Exception as e:
-        print(f"Error in agent cycle: {e}")
+        # Update metrics for failure
+        metrics['failed_emails'] += 1
+        total_duration = (time.time() - cycle_start) * 1000
+        trace['total_duration_ms'] = round(total_duration, 2)
+        trace['status'] = 'error'
+        trace['error'] = str(e)
+        trace['end_time'] = datetime.utcnow().isoformat()
+        metrics['traces'].append(trace)
+
+        logger.error(f"[{trace_id}] Agent cycle failed: {e}")
         return jsonify({
             'error': str(e),
             'step': 'unknown',
-            'steps': steps if 'steps' in locals() else []
+            'steps': steps if 'steps' in locals() else [],
+            'trace_id': trace_id
         }), 500
 
 @app.route('/send-email', methods=['POST'])
