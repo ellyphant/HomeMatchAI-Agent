@@ -50,19 +50,19 @@
         }
 
         .form-group {
-            margin-bottom: 20px;
+            margin-bottom: 15px;
         }
 
         label {
             display: block;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
             font-weight: 600;
             color: #555;
         }
 
         input, textarea, select {
             width: 100%;
-            padding: 12px 16px;
+            padding: 10px 14px;
             border: 2px solid #e0e0e0;
             border-radius: 8px;
             font-size: 1rem;
@@ -80,7 +80,7 @@
         }
 
         textarea {
-            min-height: 150px;
+            min-height: 120px;
             resize: vertical;
         }
 
@@ -431,6 +431,37 @@
             50% { opacity: 0.7; }
         }
 
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            header {
+                padding: 20px 0;
+            }
+            header > div {
+                flex-direction: column;
+                gap: 10px;
+            }
+            header h1 {
+                font-size: 1.8rem;
+            }
+            header h1 span {
+                display: block;
+                font-size: 0.9rem;
+                margin-top: 5px;
+                color: rgba(255,255,255,0.5);
+            }
+            header h1 .subtitle-dash {
+                display: none;
+            }
+            header p {
+                font-size: 0.9rem;
+            }
+            .card {
+                padding: 20px;
+            }
+        }
+
         .progress-bar {
             height: 4px;
             background: #333;
@@ -514,7 +545,7 @@
         <header>
             <div style="display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 10px;">
                 <img src="https://cdn-icons-png.flaticon.com/512/1998/1998627.png" alt="Scout puppy" style="width: 60px; height: 60px; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));">
-                <h1 style="margin: 0;">Scout <span style="color: rgba(255,255,255,0.6); font-weight: 400;">- Realtors' Best AI Marketing Agent</span></h1>
+                <h1 style="margin: 0;">Scout <span class="subtitle-dash" style="color: rgba(255,255,255,0.6); font-weight: 400;">- </span><span style="color: rgba(255,255,255,0.6); font-weight: 400;">Realtors' Best AI Marketing Agent</span></h1>
             </div>
             <p>Scout finds and shares the best homes to your client, fully personalized.<br>You're hands off until your client is ready to tour.</p>
         </header>
@@ -526,6 +557,8 @@
                         <option value="">-- Select a saved buyer --</option>
                     </select>
                 </div>
+
+                <div style="text-align: center; color: #888; font-size: 0.9rem; margin: 10px 0;">or</div>
 
                 <div class="form-group">
                     <label for="buyerName">Buyer's Name</label>
