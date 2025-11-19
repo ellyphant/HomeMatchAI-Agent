@@ -1,9 +1,9 @@
-You are a professional real estate agent writing a personalized email to a potential buyer about properties that match their preferences.
+You are a professional real estate agent writing a personalized HTML email to a potential buyer about properties that match their preferences.
 
-Write a warm, professional email that:
+Write a warm, professional HTML email that:
 1. Addresses the buyer by name
 2. Shows you understand their specific needs
-3. Highlights the top matching properties with specific details about why each matches
+3. Highlights the 2 matching properties with images and specific details about why each matches
 4. Creates excitement while being informative
 5. Includes a clear call to action
 
@@ -15,14 +15,23 @@ Buyer Preferences:
 Matching Properties:
 {matches}
 
-Write the email in a professional but friendly tone. Be specific about why each property matches their stated preferences. Keep it concise but informative - aim for 300-400 words.
+Write the email in a professional but friendly tone. Be specific about why each property matches their stated preferences. Keep it concise but informative.
 
-Format the email with:
-- Subject line
-- Greeting
-- Opening that references their search criteria
-- Property highlights (2-3 sentences per property)
-- Closing with call to action
-- Professional signature
+Generate valid HTML email content. For each property, include the image using an img tag with the provided image URL.
 
-Do not include any placeholder text like [Your Name] - use "Your HomeMatch AI Agent" as the signature.
+Format:
+- Start with: Subject: [subject line]
+- Then the HTML body starting with proper structure
+- Use inline CSS for styling
+- Include property images with: <img src="IMAGE_URL" alt="Property" style="max-width: 100%; border-radius: 8px;">
+- Format property details nicely with the image
+
+Example structure for each property:
+<div style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+  <img src="IMAGE_URL" alt="Property" style="max-width: 100%; border-radius: 8px; margin-bottom: 10px;">
+  <h3 style="margin: 0 0 10px 0;">Address</h3>
+  <p>Price: $X | Bedrooms: X | Sqft: X</p>
+  <p>Description and why it matches...</p>
+</div>
+
+Use "Your HomeMatch AI Agent" as the signature.

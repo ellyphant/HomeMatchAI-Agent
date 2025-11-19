@@ -128,16 +128,37 @@
             padding: 15px;
             border-radius: 8px;
             margin-bottom: 10px;
+            display: flex;
+            gap: 15px;
+            align-items: flex-start;
         }
 
-        .match-item h4 {
+        .match-item input[type="checkbox"] {
+            margin-top: 5px;
+            width: 20px;
+            height: 20px;
+        }
+
+        .match-image {
+            width: 120px;
+            height: 90px;
+            object-fit: cover;
+            border-radius: 6px;
+        }
+
+        .match-details {
+            flex: 1;
+        }
+
+        .match-details h4 {
             color: #333;
             margin-bottom: 5px;
         }
 
-        .match-item p {
+        .match-details p {
             color: #666;
             font-size: 0.9rem;
+            margin: 2px 0;
         }
 
         .match-score {
@@ -148,6 +169,24 @@
             border-radius: 4px;
             font-size: 0.8rem;
             margin-left: 10px;
+        }
+
+        .selection-info {
+            background: #e3f2fd;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            text-align: center;
+            color: #1976d2;
+        }
+
+        #generateEmailBtn {
+            margin-top: 15px;
+            background: #ff9800;
+        }
+
+        #generateEmailBtn:disabled {
+            background: #ccc;
         }
 
         .email-preview {
@@ -237,10 +276,12 @@
 
                 <div class="result-section">
                     <h3>Top Matching Properties</h3>
+                    <div class="selection-info">Select exactly 2 properties to include in the email</div>
                     <div id="matches"></div>
+                    <button type="button" id="generateEmailBtn" onclick="generateEmailForSelected()" disabled>Generate Email for Selected (0/2)</button>
                 </div>
 
-                <div class="result-section">
+                <div class="result-section" id="emailSection" style="display: none;">
                     <h3>Personalized Email</h3>
                     <div class="email-preview" id="email"></div>
                     <div style="margin-top: 15px; display: flex; gap: 10px;">
@@ -265,6 +306,9 @@
         // Store for email sending
         let currentBuyerName = '';
         let currentBuyerEmail = '';
+        let currentBuyerInput = '';
+        let currentMatches = [];
+        let currentPreferences = {};
 
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -276,6 +320,7 @@
             // Store for later use
             currentBuyerName = buyerName;
             currentBuyerEmail = buyerEmail;
+            currentBuyerInput = buyerInput;
 
             // Show loading state
             results.classList.add('show');
@@ -325,6 +370,13 @@
             loading.style.display = 'none';
             resultContent.style.display = 'block';
 
+            // Store data for later
+            currentMatches = data.matches || [];
+            currentPreferences = data.preferences || {};
+
+            // Hide email section until properties are selected
+            document.getElementById('emailSection').style.display = 'none';
+
             // Display preferences
             const prefsDiv = document.getElementById('preferences');
             if (data.preferences) {
@@ -345,16 +397,20 @@
                 prefsDiv.innerHTML = prefsHtml;
             }
 
-            // Display matches
+            // Display matches with checkboxes and images
             const matchesDiv = document.getElementById('matches');
             if (data.matches && data.matches.length) {
                 let matchesHtml = '';
-                data.matches.forEach(match => {
+                data.matches.forEach((match, index) => {
                     matchesHtml += `
                         <div class="match-item">
-                            <h4>${match.address} <span class="match-score">Score: ${match.score}</span></h4>
-                            <p><strong>Price:</strong> $${match.price.toLocaleString()}</p>
-                            <p><strong>Why it matches:</strong> ${match.reasons.join(', ')}</p>
+                            <input type="checkbox" id="match-${index}" onchange="updateSelection()" data-index="${index}">
+                            <img src="${match.image_url || 'https://via.placeholder.com/120x90'}" alt="Property" class="match-image">
+                            <div class="match-details">
+                                <h4>${match.address} <span class="match-score">Score: ${match.score}</span></h4>
+                                <p><strong>Price:</strong> $${match.price.toLocaleString()}</p>
+                                <p><strong>Why it matches:</strong> ${match.reasons.join(', ')}</p>
+                            </div>
                         </div>
                     `;
                 });
@@ -363,13 +419,75 @@
                 matchesDiv.innerHTML = '<p>No matching properties found. Try adjusting your criteria.</p>';
             }
 
-            // Display email
-            const emailDiv = document.getElementById('email');
-            emailDiv.textContent = data.email || 'No email generated';
+            // Reset generate button
+            updateSelection();
+        }
+
+        function updateSelection() {
+            const checkboxes = document.querySelectorAll('#matches input[type="checkbox"]:checked');
+            const count = checkboxes.length;
+            const btn = document.getElementById('generateEmailBtn');
+            btn.textContent = `Generate Email for Selected (${count}/2)`;
+            btn.disabled = count !== 2;
+        }
+
+        async function generateEmailForSelected() {
+            const checkboxes = document.querySelectorAll('#matches input[type="checkbox"]:checked');
+            if (checkboxes.length !== 2) {
+                alert('Please select exactly 2 properties');
+                return;
+            }
+
+            const selectedIndices = Array.from(checkboxes).map(cb => parseInt(cb.dataset.index));
+            const selectedMatches = selectedIndices.map(i => currentMatches[i]);
+
+            const btn = document.getElementById('generateEmailBtn');
+            btn.disabled = true;
+            btn.textContent = 'Generating...';
+
+            try {
+                const response = await fetch('/generate-email', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        buyer_name: currentBuyerName,
+                        preferences: currentPreferences,
+                        selected_matches: selectedMatches
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                // Show email section
+                document.getElementById('emailSection').style.display = 'block';
+                const emailDiv = document.getElementById('email');
+                // If it contains HTML, render it; otherwise show as text
+                if (data.email.includes('<') && data.email.includes('>')) {
+                    emailDiv.innerHTML = data.email;
+                } else {
+                    emailDiv.textContent = data.email;
+                }
+
+                btn.textContent = 'Generate Email for Selected (2/2)';
+                btn.disabled = false;
+
+            } catch (error) {
+                alert('Error generating email: ' + error.message);
+                btn.textContent = 'Generate Email for Selected (2/2)';
+                btn.disabled = false;
+            }
         }
 
         function copyEmail() {
-            const emailText = document.getElementById('email').textContent;
+            const emailDiv = document.getElementById('email');
+            // Copy innerHTML if it's HTML, otherwise textContent
+            const emailText = emailDiv.innerHTML.includes('<') ? emailDiv.innerHTML : emailDiv.textContent;
             navigator.clipboard.writeText(emailText).then(() => {
                 const copyBtn = document.getElementById('copyBtn');
                 copyBtn.textContent = 'Copied!';
@@ -385,7 +503,9 @@
 
         async function sendEmail() {
             const sendBtn = document.getElementById('sendBtn');
-            const emailContent = document.getElementById('email').textContent;
+            const emailDiv = document.getElementById('email');
+            // Send HTML if available, otherwise text
+            const emailContent = emailDiv.innerHTML.includes('<') ? emailDiv.innerHTML : emailDiv.textContent;
 
             sendBtn.disabled = true;
             sendBtn.textContent = 'Sending...';

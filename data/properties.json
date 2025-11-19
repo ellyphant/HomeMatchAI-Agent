@@ -8,7 +8,8 @@
     "sqft": 1800,
     "neighborhood": "Pacific Heights",
     "features": ["garage", "backyard", "modern kitchen", "hardwood floors", "washer/dryer"],
-    "description": "Charming Victorian home with modern updates in the heart of Pacific Heights."
+    "description": "Charming Victorian home with modern updates in the heart of Pacific Heights.",
+    "image_url": "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=600"
   },
   {
     "id": "prop-002",
@@ -19,7 +20,8 @@
     "sqft": 2400,
     "neighborhood": "Marina",
     "features": ["ocean view", "garage", "modern kitchen", "home office", "deck"],
-    "description": "Stunning Marina home with panoramic bay views and luxury finishes."
+    "description": "Stunning Marina home with panoramic bay views and luxury finishes.",
+    "image_url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=600"
   },
   {
     "id": "prop-003",
@@ -30,7 +32,8 @@
     "sqft": 1200,
     "neighborhood": "Mission",
     "features": ["modern kitchen", "hardwood floors", "washer/dryer", "roof deck"],
-    "description": "Hip Mission District condo with rooftop access and walkable neighborhood."
+    "description": "Hip Mission District condo with rooftop access and walkable neighborhood.",
+    "image_url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600"
   },
   {
     "id": "prop-004",
@@ -41,7 +44,8 @@
     "sqft": 1600,
     "neighborhood": "NoPa",
     "features": ["backyard", "garage", "fireplace", "hardwood floors"],
-    "description": "Classic NoPa Victorian with original details and private garden."
+    "description": "Classic NoPa Victorian with original details and private garden.",
+    "image_url": "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=600"
   },
   {
     "id": "prop-005",
@@ -52,7 +56,8 @@
     "sqft": 1100,
     "neighborhood": "Hayes Valley",
     "features": ["modern kitchen", "in-unit laundry", "gym", "roof deck"],
-    "description": "Modern Hayes Valley condo steps from shops and restaurants."
+    "description": "Modern Hayes Valley condo steps from shops and restaurants.",
+    "image_url": "https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?w=600"
   },
   {
     "id": "prop-006",
@@ -63,7 +68,8 @@
     "sqft": 2200,
     "neighborhood": "Inner Richmond",
     "features": ["garage", "backyard", "modern kitchen", "home office", "fireplace"],
-    "description": "Spacious family home near Golden Gate Park with large yard."
+    "description": "Spacious family home near Golden Gate Park with large yard.",
+    "image_url": "https://images.unsplash.com/photo-1600047509807-ba8f99d2cdde?w=600"
   },
   {
     "id": "prop-007",
@@ -74,7 +80,8 @@
     "sqft": 1400,
     "neighborhood": "SoMa",
     "features": ["city view", "gym", "doorman", "modern kitchen", "balcony"],
-    "description": "Luxury high-rise condo with stunning city views and full amenities."
+    "description": "Luxury high-rise condo with stunning city views and full amenities.",
+    "image_url": "https://images.unsplash.com/photo-1600573472550-8090b5e0745e?w=600"
   },
   {
     "id": "prop-008",
@@ -85,7 +92,8 @@
     "sqft": 1700,
     "neighborhood": "Noe Valley",
     "features": ["backyard", "garage", "modern kitchen", "hardwood floors", "home office"],
-    "description": "Sunny Noe Valley home with garden and family-friendly street."
+    "description": "Sunny Noe Valley home with garden and family-friendly street.",
+    "image_url": "https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?w=600"
   },
   {
     "id": "prop-009",
@@ -96,7 +104,8 @@
     "sqft": 3000,
     "neighborhood": "Russian Hill",
     "features": ["bay view", "garage", "modern kitchen", "wine cellar", "home theater"],
-    "description": "Spectacular Russian Hill penthouse with bridge and bay views."
+    "description": "Spectacular Russian Hill penthouse with bridge and bay views.",
+    "image_url": "https://images.unsplash.com/photo-1600585154526-990dced4db0d?w=600"
   },
   {
     "id": "prop-010",
@@ -107,6 +116,7 @@
     "sqft": 1500,
     "neighborhood": "Outer Richmond",
     "features": ["garage", "backyard", "updated kitchen", "hardwood floors"],
-    "description": "Well-maintained Richmond home close to Ocean Beach and restaurants."
+    "description": "Well-maintained Richmond home close to Ocean Beach and restaurants.",
+    "image_url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=600"
   }
 ]

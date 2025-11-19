@@ -164,8 +164,6 @@ def run_campaign(buyer_name: str, buyer_input: str) -> dict:
                 'message': 'No properties found matching your criteria.'
             }
 
-        email = generate_email(buyer_name, preferences, matches)
-
         return {
             'status': 'success',
             'buyer_name': buyer_name,
@@ -175,11 +173,16 @@ def run_campaign(buyer_name: str, buyer_input: str) -> dict:
                     'address': m['property'].get('address'),
                     'price': m['property'].get('price'),
                     'score': m['score'],
-                    'reasons': m['match_reasons']
+                    'reasons': m['match_reasons'],
+                    'image_url': m['property'].get('image_url'),
+                    'bedrooms': m['property'].get('bedrooms'),
+                    'bathrooms': m['property'].get('bathrooms'),
+                    'sqft': m['property'].get('sqft'),
+                    'description': m['property'].get('description'),
+                    'features': m['property'].get('features', [])
                 }
                 for m in matches
             ],
-            'email': email,
             'generated_at': datetime.utcnow().isoformat()
         }
 
@@ -221,6 +224,58 @@ def generate():
         print(f"Error generating campaign: {e}")
         return jsonify({'error': 'An error occurred generating the campaign'}), 500
 
+@app.route('/generate-email', methods=['POST'])
+def generate_email_endpoint():
+    """Generate email for selected properties"""
+    try:
+        data = request.json
+        buyer_name = data.get('buyer_name', 'Valued Client')
+        preferences = data.get('preferences', {})
+        selected_matches = data.get('selected_matches', [])
+
+        if len(selected_matches) != 2:
+            return jsonify({'error': 'Please select exactly 2 properties'}), 400
+
+        # Format matches for email generation
+        matches_text = ""
+        for i, match in enumerate(selected_matches, 1):
+            matches_text += f"\n{i}. {match.get('address', 'Address TBD')}\n"
+            matches_text += f"   Price: ${match.get('price', 0):,}\n"
+            matches_text += f"   Bedrooms: {match.get('bedrooms', 'N/A')} | Bathrooms: {match.get('bathrooms', 'N/A')}\n"
+            matches_text += f"   Sqft: {match.get('sqft', 'N/A')}\n"
+            matches_text += f"   Features: {', '.join(match.get('features', []))}\n"
+            matches_text += f"   Description: {match.get('description', '')}\n"
+            matches_text += f"   Image: {match.get('image_url', '')}\n"
+            matches_text += f"   Why it matches: {', '.join(match.get('reasons', []))}\n"
+
+        prompt = load_prompt('email_gen')
+
+        response = client.chat.completions.create(
+            model="hf:zai-org/GLM-4.5",
+            max_tokens=2048,
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt.format(
+                        buyer_name=buyer_name,
+                        preferences=json.dumps(preferences, indent=2),
+                        matches=matches_text
+                    )
+                }
+            ]
+        )
+
+        email_content = response.choices[0].message.content or "Email generation failed"
+
+        return jsonify({
+            'status': 'success',
+            'email': email_content
+        })
+
+    except Exception as e:
+        print(f"Error generating email: {e}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/health')
 def health():
     """Health check endpoint"""
@@ -246,13 +301,24 @@ def send_email():
                 subject = line.replace('Subject:', '').replace('subject:', '').strip()
                 break
 
+        # Check if content is HTML
+        is_html = '<' in email_content and '>' in email_content
+
         # Create SendGrid message
-        message = Mail(
-            from_email=os.environ.get('SENDGRID_FROM_EMAIL', 'noreply@homematch.ai'),
-            to_emails=to_email,
-            subject=subject,
-            plain_text_content=email_content
-        )
+        if is_html:
+            message = Mail(
+                from_email=os.environ.get('SENDGRID_FROM_EMAIL', 'noreply@homematch.ai'),
+                to_emails=to_email,
+                subject=subject,
+                html_content=email_content
+            )
+        else:
+            message = Mail(
+                from_email=os.environ.get('SENDGRID_FROM_EMAIL', 'noreply@homematch.ai'),
+                to_emails=to_email,
+                subject=subject,
+                plain_text_content=email_content
+            )
 
         # Send email
         sg = SendGridAPIClient(os.environ.get('SENDGRID_API_KEY'))
