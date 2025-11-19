@@ -109,15 +109,29 @@ def parse_preferences_manually(buyer_input: str) -> dict:
     if features:
         preferences['desired_features'] = features
 
-    # Extract locations (common SF neighborhoods)
+    # Extract locations (common SF and Bay Area neighborhoods)
     locations = []
     neighborhoods = ['pacific heights', 'marina', 'noe valley', 'mission', 'soma', 'hayes valley',
-                    'russian hill', 'nopa', 'richmond', 'sunset', 'fremont', 'oakland', 'berkeley']
+                    'russian hill', 'nopa', 'richmond', 'sunset', 'fremont', 'oakland', 'berkeley',
+                    'san jose', 'santa clara', 'sunnyvale', 'mountain view', 'palo alto']
     for hood in neighborhoods:
         if hood in text:
             locations.append(hood.title())
     if locations:
         preferences['preferred_locations'] = locations
+
+    # Extract property type preferences
+    if any(term in text for term in ['multi-unit', 'multi unit', 'multiplex', 'duplex', 'triplex', 'fourplex', 'apartment building', 'units']):
+        preferences['property_type'] = 'multi-unit'
+        if 'desired_features' not in preferences:
+            preferences['desired_features'] = []
+        preferences['desired_features'].append('multi-unit')
+
+    # Extract investment-related preferences
+    if any(term in text for term in ['invest', 'roi', 'cap rate', 'rental', 'income', 'cash flow']):
+        if 'desired_features' not in preferences:
+            preferences['desired_features'] = []
+        preferences['desired_features'].extend(['investment property', 'high ROI', 'good ROI'])
 
     return preferences
 
