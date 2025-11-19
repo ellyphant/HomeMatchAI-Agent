@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
 from openai import OpenAI
 from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail
+from sendgrid.helpers.mail import Mail, Email
 import json
 import os
 from datetime import datetime
@@ -448,16 +448,20 @@ def run_agent_cycle():
         is_html = '<' in email_content and '>' in email_content
 
         # Create and send email
+        from_email = Email(
+            os.environ.get('SENDGRID_FROM_EMAIL', 'noreply@homematch.ai'),
+            'Hack The Bay Realty Co. - Elly Lin'
+        )
         if is_html:
             message = Mail(
-                from_email=os.environ.get('SENDGRID_FROM_EMAIL', 'noreply@homematch.ai'),
+                from_email=from_email,
                 to_emails=buyer_email,
                 subject=subject,
                 html_content=email_content
             )
         else:
             message = Mail(
-                from_email=os.environ.get('SENDGRID_FROM_EMAIL', 'noreply@homematch.ai'),
+                from_email=from_email,
                 to_emails=buyer_email,
                 subject=subject,
                 plain_text_content=email_content
@@ -475,6 +479,7 @@ def run_agent_cycle():
             'properties_matched': len(matches),
             'properties_selected': [m['address'] for m in selected_matches],
             'steps': steps,
+            'email_content': email_content,
             'timestamp': datetime.utcnow().isoformat()
         })
 
@@ -510,16 +515,20 @@ def send_email():
         is_html = '<' in email_content and '>' in email_content
 
         # Create SendGrid message
+        from_email = Email(
+            os.environ.get('SENDGRID_FROM_EMAIL', 'noreply@homematch.ai'),
+            'Hack The Bay Realty Co. - Elly Lin'
+        )
         if is_html:
             message = Mail(
-                from_email=os.environ.get('SENDGRID_FROM_EMAIL', 'noreply@homematch.ai'),
+                from_email=from_email,
                 to_emails=to_email,
                 subject=subject,
                 html_content=email_content
             )
         else:
             message = Mail(
-                from_email=os.environ.get('SENDGRID_FROM_EMAIL', 'noreply@homematch.ai'),
+                from_email=from_email,
                 to_emails=to_email,
                 subject=subject,
                 plain_text_content=email_content

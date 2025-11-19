@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HomeMatch AI - Find Your Perfect Home</title>
+    <title>AI Marketing Agent for Realtors</title>
     <style>
         * {
             box-sizing: border-box;
@@ -461,13 +461,54 @@
         .agent-campaign-controls {
             margin-bottom: 15px;
         }
+
+        /* Modern Toast Notification */
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            padding: 16px 24px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            font-weight: 600;
+            font-size: 1rem;
+            z-index: 10000;
+            transform: translateX(120%);
+            transition: transform 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+
+        .toast-icon {
+            width: 24px;
+            height: 24px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
+        <!-- Toast Notification -->
+        <div class="toast" id="toast">
+            <span class="toast-icon">✓</span>
+            <span id="toastMessage">Saved!</span>
+        </div>
+
         <header>
-            <h1>HomeMatch AI</h1>
-            <p>Describe your dream home and we'll email your buyer on matching properties</p>
+            <h1>AI Marketing Agent for Realtors</h1>
+            <p>We find and share the perfect home via personalized emails.<br>You're hands off until they're ready to tour.</p>
         </header>
 
         <div class="card">
@@ -497,7 +538,7 @@
 
                 <div style="display: flex; gap: 10px;">
                     <button type="submit" id="submitBtn" style="flex: 2;">Find Matching Properties</button>
-                    <button type="button" id="saveBtn" onclick="saveBuyer()" style="flex: 1; background: #6c757d;">Save Buyer</button>
+                    <button type="button" id="saveBtn" onclick="saveBuyer()" style="flex: 1; background: #28a745;">Save Buyer</button>
                 </div>
             </form>
         </div>
@@ -517,7 +558,7 @@
                 <!-- Agent Campaign Section -->
                 <div class="result-section agent-campaign-section">
                     <h3 style="color: #00d4ff;">Launch Agent Campaign</h3>
-                    <p style="color: #666; margin-bottom: 15px;">Review preferences above, then let the AI agent automatically select the best properties, generate a personalized email, and send it.</p>
+                    <p style="color: #e0e0e0; margin-bottom: 15px;">Review preferences above, then let the AI agent automatically select the best properties, generate a personalized email, and send it.</p>
 
                     <div class="agent-campaign-controls">
                         <div class="form-group">
@@ -532,17 +573,14 @@
                         </div>
                     </div>
 
-                    <div class="agent-status idle" id="agentStatus">
-                        Ready to launch campaign
+                    <div style="position: relative;">
+                        <button type="button" id="launchCampaignBtn" onclick="launchAgentCampaign()" style="background: linear-gradient(135deg, #00ff88 0%, #00d4ff 100%); color: #000; font-weight: 700; position: relative; overflow: hidden;">
+                            <span id="launchBtnText">Launch Agent Campaign</span>
+                        </button>
+                        <div class="progress-bar" style="position: absolute; bottom: 0; left: 0; right: 0; height: 4px; margin: 0; border-radius: 0 0 8px 8px;">
+                            <div class="progress-bar-fill" id="progressBar"></div>
+                        </div>
                     </div>
-
-                    <div class="progress-bar">
-                        <div class="progress-bar-fill" id="progressBar"></div>
-                    </div>
-
-                    <button type="button" id="launchCampaignBtn" onclick="launchAgentCampaign()" style="background: linear-gradient(135deg, #00ff88 0%, #00d4ff 100%); color: #000; font-weight: 700;">
-                        Launch Agent Campaign
-                    </button>
 
                     <div class="activity-log" id="activityLog" style="margin-top: 15px;">
                         <h4>Agent Activity Log</h4>
@@ -589,8 +627,49 @@
         // Agent Mode state
         let agentRunning = false;
 
+        // Track saved state
+        let lastSavedData = { name: '', email: '', input: '' };
+
         // Load saved buyers on page load
-        document.addEventListener('DOMContentLoaded', loadSavedBuyersList);
+        document.addEventListener('DOMContentLoaded', () => {
+            loadSavedBuyersList();
+
+            // Track form changes to update Save button color
+            const nameInput = document.getElementById('buyerName');
+            const emailInput = document.getElementById('buyerEmail');
+            const inputField = document.getElementById('buyerInput');
+
+            [nameInput, emailInput, inputField].forEach(field => {
+                field.addEventListener('input', updateSaveButtonState);
+            });
+        });
+
+        function updateSaveButtonState() {
+            const saveBtn = document.getElementById('saveBtn');
+            const currentName = document.getElementById('buyerName').value;
+            const currentEmail = document.getElementById('buyerEmail').value;
+            const currentInput = document.getElementById('buyerInput').value;
+
+            const hasChanges = currentName !== lastSavedData.name ||
+                               currentEmail !== lastSavedData.email ||
+                               currentInput !== lastSavedData.input;
+
+            if (hasChanges) {
+                saveBtn.style.background = '#28a745'; // Green - unsaved changes
+            } else {
+                saveBtn.style.background = '#6c757d'; // Gray - already saved
+            }
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toastMessage');
+            toastMessage.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
 
         function loadSavedBuyersList() {
             const buyers = JSON.parse(localStorage.getItem('savedBuyers') || '{}');
@@ -619,10 +698,14 @@
             buyers[name] = { name, email, input };
             localStorage.setItem('savedBuyers', JSON.stringify(buyers));
 
+            // Update saved state tracking
+            lastSavedData = { name, email, input };
+            updateSaveButtonState();
+
             loadSavedBuyersList();
             document.getElementById('savedBuyers').value = name;
 
-            alert(`Buyer "${name}" saved!`);
+            showToast(`Buyer "${name}" saved!`);
         }
 
         function loadSavedBuyer() {
@@ -638,6 +721,14 @@
                 document.getElementById('buyerName').value = buyer.name || '';
                 document.getElementById('buyerEmail').value = buyer.email || '';
                 document.getElementById('buyerInput').value = buyer.input || '';
+
+                // Update saved state tracking
+                lastSavedData = {
+                    name: buyer.name || '',
+                    email: buyer.email || '',
+                    input: buyer.input || ''
+                };
+                updateSaveButtonState();
             }
         }
 
@@ -826,10 +917,57 @@
             logEntries.scrollTop = logEntries.scrollHeight;
         }
 
+        function addLogEntryWithLink(message, type, onClick) {
+            const logEntries = document.getElementById('logEntries');
+            const time = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+
+            const timeSpan = document.createElement('span');
+            timeSpan.className = 'log-time';
+            timeSpan.textContent = time;
+
+            const link = document.createElement('a');
+            link.href = '#';
+            link.className = `log-message ${type}`;
+            link.textContent = message;
+            link.style.textDecoration = 'underline';
+            link.style.cursor = 'pointer';
+            link.onclick = (e) => {
+                e.preventDefault();
+                onClick();
+            };
+
+            entry.appendChild(timeSpan);
+            entry.appendChild(link);
+            logEntries.appendChild(entry);
+            logEntries.scrollTop = logEntries.scrollHeight;
+        }
+
+        function showEmailPreview(emailContent) {
+            const emailSection = document.getElementById('emailSection');
+            const emailDiv = document.getElementById('email');
+
+            emailSection.style.display = 'block';
+            if (emailContent.includes('<') && emailContent.includes('>')) {
+                emailDiv.innerHTML = emailContent;
+            } else {
+                emailDiv.textContent = emailContent;
+            }
+
+            // Scroll to email preview
+            emailSection.scrollIntoView({ behavior: 'smooth' });
+        }
+
         function updateAgentStatus(text, isRunning) {
-            const status = document.getElementById('agentStatus');
-            status.textContent = text;
-            status.className = isRunning ? 'agent-status running' : 'agent-status idle';
+            const btnText = document.getElementById('launchBtnText');
+            const btn = document.getElementById('launchCampaignBtn');
+            btnText.textContent = text;
+            if (isRunning) {
+                btn.style.background = 'linear-gradient(135deg, #f39c12 0%, #e74c3c 100%)';
+            } else {
+                btn.style.background = 'linear-gradient(135deg, #00ff88 0%, #00d4ff 100%)';
+            }
         }
 
         function updateProgress(percent) {
@@ -848,7 +986,6 @@
 
             const btn = document.getElementById('launchCampaignBtn');
             btn.disabled = true;
-            btn.textContent = 'Agent Running...';
 
             // Clear previous log entries
             document.getElementById('logEntries').innerHTML = '';
@@ -924,6 +1061,15 @@
                         addLogEntry(`Email ${i + 1} sent with: ${data.properties_selected.join(', ')}`, 'success');
                     }
 
+                    // Show email preview link
+                    if (data.email_content) {
+                        const emailId = `email-preview-${i}`;
+                        window[emailId] = data.email_content;
+                        addLogEntryWithLink(`View sent email ${i + 1}`, 'info', () => {
+                            showEmailPreview(window[emailId]);
+                        });
+                    }
+
                     emailsSent++;
                     updateProgress(10 + ((i + 1) * 45));
                 }
@@ -946,7 +1092,10 @@
             } finally {
                 agentRunning = false;
                 btn.disabled = false;
-                btn.textContent = 'Launch Agent Campaign';
+                // Reset button text after a delay so user can see completion status
+                setTimeout(() => {
+                    updateAgentStatus('Launch Agent Campaign', false);
+                }, 3000);
             }
         }
     </script>

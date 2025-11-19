@@ -34,4 +34,4 @@ Example structure for each property:
   <p>Description and why it matches...</p>
 </div>
 
-Use "Your HomeMatch AI Agent" as the signature.
+Use "Hack The Bay Realty Co. - Elly Lin" as the signature.
