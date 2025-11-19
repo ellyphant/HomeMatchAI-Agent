@@ -506,39 +506,75 @@ def match_properties(preferences: dict, properties: list) -> list:
 
     matches = []
 
-    for prop in properties:
-        score = 15  # Base score for all properties
+    for idx, prop in enumerate(properties):
+        score = 10  # Base score for all properties
         reasons = []
 
+        # Budget scoring with granularity
         max_budget = preferences.get('max_budget')
         if max_budget and 'price' in prop:
-            if prop['price'] <= max_budget:
+            price = prop['price']
+            if price <= max_budget * 0.7:
+                score += 30
+                reasons.append("Well under budget")
+            elif price <= max_budget * 0.9:
                 score += 40
+                reasons.append("Great value for budget")
+            elif price <= max_budget:
+                score += 35
                 reasons.append("Within budget")
-            elif prop['price'] <= max_budget * 1.1:
-                score += 10
+            elif price <= max_budget * 1.1:
+                score += 15
                 reasons.append("Slightly over budget")
+            elif price <= max_budget * 1.2:
+                score += 5
+                reasons.append("Over budget but notable")
+
+            # Bonus for price efficiency (lower price = small bonus)
+            price_efficiency = max(0, (max_budget - price) / max_budget * 10)
+            score += int(price_efficiency)
         elif not max_budget:
             score += 20  # No budget specified
 
+        # Bedroom scoring with granularity
         min_bedrooms = preferences.get('min_bedrooms')
         if min_bedrooms and 'bedrooms' in prop:
-            if prop['bedrooms'] >= min_bedrooms:
-                score += 15
-                reasons.append(f"{prop['bedrooms']} bedrooms meets requirement")
+            beds = prop['bedrooms']
+            if beds == min_bedrooms:
+                score += 20
+                reasons.append(f"Exact {beds}BR match")
+            elif beds == min_bedrooms + 1:
+                score += 18
+                reasons.append(f"{beds}BR - extra room")
+            elif beds > min_bedrooms:
+                score += 12
+                reasons.append(f"{beds}BR meets requirement")
 
+        # Location scoring
         if 'preferred_locations' in preferences and 'neighborhood' in prop:
             if prop['neighborhood'].lower() in [loc.lower() for loc in preferences.get('preferred_locations', [])]:
-                score += 20
+                score += 25
                 reasons.append(f"In preferred area: {prop['neighborhood']}")
 
+        # Feature scoring with individual weights
         if 'desired_features' in preferences and 'features' in prop:
             matching_features = set(f.lower() for f in preferences.get('desired_features', [])) & \
                               set(f.lower() for f in prop.get('features', []))
             if matching_features:
-                # High value for matching features
-                score += len(matching_features) * 25
+                # Variable points per feature (15-20 each)
+                for i, feature in enumerate(matching_features):
+                    score += 15 + (i % 6)  # Varies between 15-20
                 reasons.append(f"Has: {', '.join(matching_features)}")
+
+        # Sqft bonus (larger = small bonus)
+        sqft = prop.get('sqft', 0)
+        if sqft > 2000:
+            score += 5
+        elif sqft > 1500:
+            score += 3
+
+        # Small uniqueness factor based on property index to break ties
+        score += (idx * 7) % 5  # Adds 0-4 points
 
         # Always add property with at least a base reason
         if not reasons:
