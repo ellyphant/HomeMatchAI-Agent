@@ -91,6 +91,176 @@ def log_llm_call(trace, call_type, input_text, output_text, duration_ms, tokens_
         'timestamp': datetime.utcnow().isoformat()
     })
 
+# =============================================================================
+# SECURITY CONTROLS - Input Validation, Output Constraints, Policy Checks
+# =============================================================================
+
+# Blocked patterns for prompt injection detection
+PROMPT_INJECTION_PATTERNS = [
+    r'ignore\s+(all\s+)?(previous|above)\s+instructions',
+    r'ignore\s+instructions',
+    r'disregard\s+(all\s+)?(previous|above|safety)',
+    r'forget\s+(everything|all|previous)',
+    r'new\s+instructions?\s*:',
+    r'system\s*:\s*you\s+are',
+    r'<\s*system\s*>',
+    r'\]\s*\[\s*system',
+    r'pretend\s+you\s+are',
+    r'act\s+as\s+if',
+    r'roleplay\s+as',
+    r'output\s+(the|all|your)\s+(api|secret|key|password)',
+    r'reveal\s+(the|your|all)',
+    r'show\s+(me\s+)?(the\s+)?(api|secret|key|env)',
+]
+
+# Allowed email domains (for demo/safety)
+ALLOWED_EMAIL_DOMAINS = None  # Set to list like ['gmail.com', 'company.com'] to restrict
+
+# Maximum input lengths
+MAX_BUYER_INPUT_LENGTH = 2000
+MAX_NAME_LENGTH = 100
+MAX_EMAIL_LENGTH = 254
+MAX_STYLE_LENGTH = 500
+
+# Output constraints
+MAX_EMAIL_OUTPUT_LENGTH = 50000
+BLOCKED_OUTPUT_PATTERNS = [
+    r'<script[^>]*>',  # XSS prevention
+    r'javascript:',
+    r'on\w+\s*=',  # Event handlers
+]
+
+def validate_input(buyer_input: str, buyer_name: str, buyer_email: str, style: str = '') -> tuple:
+    """
+    Validate and sanitize all inputs. Returns (is_valid, error_message, sanitized_data).
+
+    Security controls:
+    - Length limits to prevent DoS
+    - Prompt injection detection
+    - Email format validation
+    - Character filtering
+    """
+    errors = []
+
+    # Length validation
+    if len(buyer_input) > MAX_BUYER_INPUT_LENGTH:
+        errors.append(f'Buyer input exceeds {MAX_BUYER_INPUT_LENGTH} characters')
+    if len(buyer_name) > MAX_NAME_LENGTH:
+        errors.append(f'Name exceeds {MAX_NAME_LENGTH} characters')
+    if len(buyer_email) > MAX_EMAIL_LENGTH:
+        errors.append(f'Email exceeds {MAX_EMAIL_LENGTH} characters')
+    if len(style) > MAX_STYLE_LENGTH:
+        errors.append(f'Style exceeds {MAX_STYLE_LENGTH} characters')
+
+    # Prompt injection detection
+    combined_input = f"{buyer_input} {style}".lower()
+    for pattern in PROMPT_INJECTION_PATTERNS:
+        if re.search(pattern, combined_input, re.IGNORECASE):
+            logger.warning(f"Prompt injection attempt detected: {pattern}")
+            metrics['security_blocks'] = metrics.get('security_blocks', 0) + 1
+            errors.append('Input contains disallowed patterns')
+            break
+
+    # Email validation
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    if not re.match(email_pattern, buyer_email):
+        errors.append('Invalid email format')
+
+    # Domain allowlist check
+    if ALLOWED_EMAIL_DOMAINS:
+        domain = buyer_email.split('@')[-1].lower()
+        if domain not in ALLOWED_EMAIL_DOMAINS:
+            errors.append(f'Email domain not allowed')
+
+    # Sanitize inputs (remove control characters)
+    sanitized = {
+        'buyer_input': re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', buyer_input),
+        'buyer_name': re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', buyer_name),
+        'buyer_email': buyer_email.strip().lower(),
+        'style': re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', style)
+    }
+
+    if errors:
+        return False, '; '.join(errors), None
+
+    return True, None, sanitized
+
+def validate_output(content: str) -> tuple:
+    """
+    Validate LLM output before sending. Returns (is_valid, sanitized_content).
+
+    Security controls:
+    - Length limits
+    - XSS pattern blocking
+    - Content sanitization
+    """
+    if len(content) > MAX_EMAIL_OUTPUT_LENGTH:
+        logger.warning(f"Output exceeds max length: {len(content)}")
+        content = content[:MAX_EMAIL_OUTPUT_LENGTH] + "\n\n[Content truncated for safety]"
+
+    # Check for blocked patterns
+    for pattern in BLOCKED_OUTPUT_PATTERNS:
+        if re.search(pattern, content, re.IGNORECASE):
+            logger.warning(f"Blocked pattern in output: {pattern}")
+            # Remove the pattern rather than blocking entirely
+            content = re.sub(pattern, '[REMOVED]', content, flags=re.IGNORECASE)
+
+    return True, content
+
+def check_sendgrid_policy(recipient_email: str, content_length: int) -> tuple:
+    """
+    Policy check before SendGrid API call.
+    Returns (allowed, reason).
+
+    Implements least-privilege by validating before external API calls.
+    """
+    # Rate check per recipient (simple in-memory)
+    recipient_key = f"sendgrid:{recipient_email}"
+    current_count = rate_limit_cache.get(recipient_key, 0)
+
+    if current_count >= 10:  # Max 10 emails per recipient per session
+        logger.warning(f"SendGrid policy block: rate limit for {scrub_secrets(recipient_email)}")
+        return False, 'Rate limit exceeded for this recipient'
+
+    # Content size check
+    if content_length > MAX_EMAIL_OUTPUT_LENGTH:
+        return False, 'Email content too large'
+
+    # Update rate counter
+    rate_limit_cache[recipient_key] = current_count + 1
+
+    return True, None
+
+def check_llm_policy(input_length: int, call_type: str) -> tuple:
+    """
+    Policy check before LLM API call.
+    Returns (allowed, reason).
+    """
+    # Check total LLM calls (prevent runaway costs)
+    if metrics.get('llm_calls', 0) > 1000:
+        logger.warning("LLM policy block: daily call limit reached")
+        return False, 'LLM call limit reached'
+
+    # Input length check
+    max_input = 10000 if call_type == 'email_generation' else 5000
+    if input_length > max_input:
+        return False, f'Input too long for {call_type}'
+
+    return True, None
+
+def safe_fail(error_msg: str, trace_id: str = None, include_trace: bool = True) -> dict:
+    """
+    Generate safe failure response without leaking internal details.
+    """
+    response = {
+        'status': 'error',
+        'error': error_msg,
+        'timestamp': datetime.utcnow().isoformat()
+    }
+    if trace_id and include_trace:
+        response['trace_id'] = trace_id
+    return response
+
 def load_properties():
     """Load property listings from JSON file"""
     properties_path = os.path.join(os.path.dirname(__file__), 'data', 'properties.json')
@@ -453,11 +623,26 @@ def run_agent_cycle():
 
         if not buyer_input:
             metrics['failed_emails'] += 1
-            return jsonify({'error': 'Buyer input is required', 'step': 'validation', 'trace_id': trace_id}), 400
+            return jsonify(safe_fail('Buyer input is required', trace_id)), 400
 
         if not buyer_email:
             metrics['failed_emails'] += 1
-            return jsonify({'error': 'Buyer email is required', 'step': 'validation', 'trace_id': trace_id}), 400
+            return jsonify(safe_fail('Buyer email is required', trace_id)), 400
+
+        # Security: Validate and sanitize all inputs
+        is_valid, error_msg, sanitized = validate_input(
+            buyer_input, buyer_name, buyer_email, personalization_style
+        )
+        if not is_valid:
+            metrics['failed_emails'] += 1
+            logger.warning(f"[{trace_id}] Input validation failed: {error_msg}")
+            return jsonify(safe_fail(error_msg, trace_id)), 400
+
+        # Use sanitized inputs
+        buyer_input = sanitized['buyer_input']
+        buyer_name = sanitized['buyer_name']
+        buyer_email = sanitized['buyer_email']
+        personalization_style = sanitized['style']
 
         steps = []
 
@@ -472,6 +657,13 @@ def run_agent_cycle():
         # Step 2: Analyze preferences (LLM call)
         step_start = time.time()
         llm_input = f"Buyer input: {buyer_input}"
+
+        # Security: Policy check before LLM call
+        allowed, reason = check_llm_policy(len(llm_input), 'preference_analysis')
+        if not allowed:
+            logger.warning(f"[{trace_id}] LLM policy check failed: {reason}")
+            return jsonify(safe_fail(reason, trace_id)), 429
+
         preferences = analyze_buyer_preferences(buyer_input)
         step_duration = (time.time() - step_start) * 1000
         metrics['llm_calls'] += 1
@@ -549,6 +741,12 @@ def run_agent_cycle():
         if personalization_style:
             prompt_content += f"\n\nPersonalization Style Instructions:\n{personalization_style}\n\nApply these style instructions when writing the email."
 
+        # Security: Policy check before LLM call
+        allowed, reason = check_llm_policy(len(prompt_content), 'email_generation')
+        if not allowed:
+            logger.warning(f"[{trace_id}] LLM policy check failed: {reason}")
+            return jsonify(safe_fail(reason, trace_id)), 429
+
         response = client.chat.completions.create(
             model="hf:zai-org/GLM-4.5",
             max_tokens=4096,
@@ -568,8 +766,23 @@ def run_agent_cycle():
         steps.append({'action': 'Generating personalized email', 'status': 'complete', 'duration_ms': round(step_duration, 2)})
         logger.info(f"[{trace_id}] Generated email ({len(email_content)} chars) in {step_duration:.2f}ms")
 
+        # Security: Validate and sanitize output
+        is_valid, email_content = validate_output(email_content)
+        if not is_valid:
+            logger.warning(f"[{trace_id}] Output validation failed")
+            # Note: validate_output always returns True but sanitizes content
+
+        add_trace_step(trace, 'validate_output', 0, details={'sanitized': True})
+
         # Step 6: Send email
         step_start = time.time()
+
+        # Security: Policy check before SendGrid API call
+        allowed, reason = check_sendgrid_policy(buyer_email, len(email_content))
+        if not allowed:
+            metrics['failed_emails'] += 1
+            logger.warning(f"[{trace_id}] SendGrid policy check failed: {reason}")
+            return jsonify(safe_fail(reason, trace_id)), 429
 
         # Extract subject
         subject = "New Property Matches for You!"
