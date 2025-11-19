@@ -1,5 +1,13 @@
 # Scout Operations Runbook
 
+## Live Endpoints
+
+**Production Metrics:** https://homematch-agent.vercel.app/metrics
+
+**Production Health:** https://homematch-agent.vercel.app/health
+
+---
+
 ## Quick Reference
 
 ### Health Check
