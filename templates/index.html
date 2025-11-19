@@ -440,6 +440,27 @@
             width: 0%;
             transition: width 0.3s ease;
         }
+
+        .agent-campaign-section {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border-radius: 8px;
+            padding: 20px;
+            color: white;
+        }
+
+        .agent-campaign-section label {
+            color: #a0a0a0;
+        }
+
+        .agent-campaign-section select {
+            background: #0f3460;
+            border: 1px solid #00d4ff;
+            color: white;
+        }
+
+        .agent-campaign-controls {
+            margin-bottom: 15px;
+        }
     </style>
 </head>
 <body>
@@ -481,62 +502,6 @@
             </form>
         </div>
 
-        <!-- Agent Mode Panel -->
-        <div class="card agent-card">
-            <h2>AI Agent Mode</h2>
-
-            <div class="agent-status idle" id="agentStatus">
-                Agent Idle - Configure and Start
-            </div>
-
-            <div class="progress-bar">
-                <div class="progress-bar-fill" id="progressBar"></div>
-            </div>
-
-            <div class="agent-controls">
-                <div class="form-group">
-                    <label for="agentFrequency">Email Interval (seconds)</label>
-                    <select id="agentFrequency">
-                        <option value="3000">3 seconds</option>
-                        <option value="5000" selected>5 seconds</option>
-                        <option value="7000">7 seconds</option>
-                        <option value="10000">10 seconds</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="agentMaxEmails">Max Emails to Send</label>
-                    <select id="agentMaxEmails">
-                        <option value="1">1 email</option>
-                        <option value="2">2 emails</option>
-                        <option value="3" selected>3 emails</option>
-                        <option value="5">5 emails</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="buyer-queue" id="buyerQueue">
-                <h4>Buyer Queue (select buyers to process)</h4>
-                <div id="queueList">
-                    <p style="color: #666; text-align: center;">No saved buyers. Save buyers above to add them to the queue.</p>
-                </div>
-            </div>
-
-            <div class="agent-buttons">
-                <button type="button" id="startAgentBtn" onclick="startAgent()">Start Agent</button>
-                <button type="button" id="stopAgentBtn" onclick="stopAgent()" disabled>Stop Agent</button>
-            </div>
-
-            <div class="activity-log" id="activityLog">
-                <h4>Agent Activity Log</h4>
-                <div id="logEntries">
-                    <div class="log-entry">
-                        <span class="log-time">--:--:--</span>
-                        <span class="log-message info">Agent initialized. Select buyers and click Start.</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <div class="card results" id="results">
             <div class="loading" id="loading">
                 <div class="spinner"></div>
@@ -549,20 +514,56 @@
                     <div id="preferences"></div>
                 </div>
 
+                <!-- Agent Campaign Section -->
+                <div class="result-section agent-campaign-section">
+                    <h3 style="color: #00d4ff;">Launch Agent Campaign</h3>
+                    <p style="color: #666; margin-bottom: 15px;">Review preferences above, then let the AI agent automatically select the best properties, generate a personalized email, and send it.</p>
+
+                    <div class="agent-campaign-controls">
+                        <div class="form-group">
+                            <label for="campaignFrequency">Email Frequency</label>
+                            <select id="campaignFrequency">
+                                <option value="5000">Every 5 seconds (Demo)</option>
+                                <option value="twice_weekly">Twice a week</option>
+                                <option value="weekly" selected>Weekly</option>
+                                <option value="twice_monthly">Twice a month</option>
+                                <option value="monthly">Monthly</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="agent-status idle" id="agentStatus">
+                        Ready to launch campaign
+                    </div>
+
+                    <div class="progress-bar">
+                        <div class="progress-bar-fill" id="progressBar"></div>
+                    </div>
+
+                    <button type="button" id="launchCampaignBtn" onclick="launchAgentCampaign()" style="background: linear-gradient(135deg, #00ff88 0%, #00d4ff 100%); color: #000; font-weight: 700;">
+                        Launch Agent Campaign
+                    </button>
+
+                    <div class="activity-log" id="activityLog" style="margin-top: 15px;">
+                        <h4>Agent Activity Log</h4>
+                        <div id="logEntries">
+                            <div class="log-entry">
+                                <span class="log-time">--:--:--</span>
+                                <span class="log-message info">Waiting for campaign launch...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="result-section">
                     <h3>Top Matching Properties</h3>
-                    <div class="selection-info">Select exactly 2 properties to include in the email</div>
+                    <div class="selection-info" style="background: #e8f5e9; color: #2e7d32;">Agent will automatically select the top 2 properties based on match score</div>
                     <div id="matches"></div>
-                    <button type="button" id="generateEmailBtn" onclick="generateEmailForSelected()" disabled>Generate Email for Selected (0/2)</button>
                 </div>
 
                 <div class="result-section" id="emailSection" style="display: none;">
-                    <h3>Personalized Email</h3>
+                    <h3>Generated Email Preview</h3>
                     <div class="email-preview" id="email"></div>
-                    <div style="margin-top: 15px; display: flex; gap: 10px;">
-                        <button type="button" id="copyBtn" onclick="copyEmail()" style="flex: 1; background: #28a745;">Copy Email</button>
-                        <button type="button" id="sendBtn" onclick="sendEmail()" style="flex: 1; background: #007bff;">Send Email</button>
-                    </div>
                 </div>
             </div>
 
@@ -587,17 +588,9 @@
 
         // Agent Mode state
         let agentRunning = false;
-        let agentInterval = null;
-        let agentQueue = [];
-        let agentCurrentIndex = 0;
-        let agentEmailsSent = 0;
-        let agentMaxEmails = 3;
 
         // Load saved buyers on page load
-        document.addEventListener('DOMContentLoaded', () => {
-            loadSavedBuyersList();
-            loadBuyerQueue();
-        });
+        document.addEventListener('DOMContentLoaded', loadSavedBuyersList);
 
         function loadSavedBuyersList() {
             const buyers = JSON.parse(localStorage.getItem('savedBuyers') || '{}');
@@ -735,17 +728,17 @@
                 prefsDiv.innerHTML = prefsHtml;
             }
 
-            // Display matches with checkboxes and images
+            // Display matches (read-only, agent auto-selects top 2)
             const matchesDiv = document.getElementById('matches');
             if (data.matches && data.matches.length) {
                 let matchesHtml = '';
                 data.matches.forEach((match, index) => {
+                    const isTopTwo = index < 2;
                     matchesHtml += `
-                        <div class="match-item">
-                            <input type="checkbox" id="match-${index}" onchange="updateSelection(event)" data-index="${index}">
+                        <div class="match-item" style="${isTopTwo ? 'border-left: 4px solid #00ff88;' : ''}">
                             <img src="${match.image_url || 'https://via.placeholder.com/120x90'}" alt="Property" class="match-image">
                             <div class="match-details">
-                                <h4>${match.address} <span class="match-score">Score: ${match.score}</span></h4>
+                                <h4>${match.address} <span class="match-score">Score: ${match.score}</span>${isTopTwo ? ' <span style="background: #00ff88; color: #000; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem;">AUTO-SELECTED</span>' : ''}</h4>
                                 <p><strong>Price:</strong> $${match.price.toLocaleString()}</p>
                                 <p><strong>Why it matches:</strong> ${match.reasons.join(', ')}</p>
                             </div>
@@ -755,78 +748,6 @@
                 matchesDiv.innerHTML = matchesHtml;
             } else {
                 matchesDiv.innerHTML = '<p>No matching properties found. Try adjusting your criteria.</p>';
-            }
-
-            // Reset generate button
-            updateSelection();
-        }
-
-        function updateSelection(event) {
-            const checkboxes = document.querySelectorAll('#matches input[type="checkbox"]:checked');
-            const count = checkboxes.length;
-
-            // Prevent selecting more than 2
-            if (count > 2 && event && event.target) {
-                event.target.checked = false;
-                alert('You can only select 2 properties');
-                return;
-            }
-
-            const btn = document.getElementById('generateEmailBtn');
-            btn.textContent = `Generate Email for Selected (${count}/2)`;
-            btn.disabled = count !== 2;
-        }
-
-        async function generateEmailForSelected() {
-            const checkboxes = document.querySelectorAll('#matches input[type="checkbox"]:checked');
-            if (checkboxes.length !== 2) {
-                alert('Please select exactly 2 properties');
-                return;
-            }
-
-            const selectedIndices = Array.from(checkboxes).map(cb => parseInt(cb.dataset.index));
-            const selectedMatches = selectedIndices.map(i => currentMatches[i]);
-
-            const btn = document.getElementById('generateEmailBtn');
-            btn.disabled = true;
-            btn.textContent = 'Generating...';
-
-            try {
-                const response = await fetch('/generate-email', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        buyer_name: currentBuyerName,
-                        preferences: currentPreferences,
-                        selected_matches: selectedMatches
-                    })
-                });
-
-                const data = await response.json();
-
-                if (data.error) {
-                    throw new Error(data.error);
-                }
-
-                // Show email section
-                document.getElementById('emailSection').style.display = 'block';
-                const emailDiv = document.getElementById('email');
-                // If it contains HTML, render it; otherwise show as text
-                if (data.email.includes('<') && data.email.includes('>')) {
-                    emailDiv.innerHTML = data.email;
-                } else {
-                    emailDiv.textContent = data.email;
-                }
-
-                btn.textContent = 'Generate Email for Selected (2/2)';
-                btn.disabled = false;
-
-            } catch (error) {
-                alert('Error generating email: ' + error.message);
-                btn.textContent = 'Generate Email for Selected (2/2)';
-                btn.disabled = false;
             }
         }
 
@@ -892,32 +813,6 @@
         }
 
         // Agent Mode Functions
-        function loadBuyerQueue() {
-            const buyers = JSON.parse(localStorage.getItem('savedBuyers') || '{}');
-            const queueList = document.getElementById('queueList');
-
-            if (Object.keys(buyers).length === 0) {
-                queueList.innerHTML = '<p style="color: #666; text-align: center;">No saved buyers. Save buyers above to add them to the queue.</p>';
-                return;
-            }
-
-            let html = '';
-            Object.keys(buyers).forEach((name, index) => {
-                const buyer = buyers[name];
-                html += `
-                    <div class="queue-item" id="queue-${index}">
-                        <input type="checkbox" id="queueCheck-${index}" data-name="${name}" checked>
-                        <div class="queue-item-info">
-                            <div class="queue-item-name">${buyer.name}</div>
-                            <div class="queue-item-email">${buyer.email || 'No email'}</div>
-                        </div>
-                        <span class="queue-item-status pending" id="queueStatus-${index}">Pending</span>
-                    </div>
-                `;
-            });
-            queueList.innerHTML = html;
-        }
-
         function addLogEntry(message, type = 'info') {
             const logEntries = document.getElementById('logEntries');
             const time = new Date().toLocaleTimeString();
@@ -937,99 +832,46 @@
             status.className = isRunning ? 'agent-status running' : 'agent-status idle';
         }
 
-        function updateProgress() {
+        function updateProgress(percent) {
             const progressBar = document.getElementById('progressBar');
-            const percent = agentMaxEmails > 0 ? (agentEmailsSent / agentMaxEmails) * 100 : 0;
             progressBar.style.width = `${percent}%`;
         }
 
-        function startAgent() {
-            // Get selected buyers
-            const checkboxes = document.querySelectorAll('#queueList input[type="checkbox"]:checked');
-            if (checkboxes.length === 0) {
-                alert('Please select at least one buyer from the queue');
+        async function launchAgentCampaign() {
+            if (!currentBuyerEmail) {
+                alert('Please enter a buyer email address');
                 return;
             }
 
-            const buyers = JSON.parse(localStorage.getItem('savedBuyers') || '{}');
-            agentQueue = Array.from(checkboxes).map(cb => {
-                const name = cb.dataset.name;
-                return buyers[name];
-            }).filter(b => b && b.email);
-
-            if (agentQueue.length === 0) {
-                alert('No valid buyers with emails found');
-                return;
-            }
-
-            // Get settings
-            const frequency = parseInt(document.getElementById('agentFrequency').value);
-            agentMaxEmails = parseInt(document.getElementById('agentMaxEmails').value);
-
-            // Reset state
-            agentCurrentIndex = 0;
-            agentEmailsSent = 0;
+            if (agentRunning) return;
             agentRunning = true;
 
-            // Update UI
-            document.getElementById('startAgentBtn').disabled = true;
-            document.getElementById('stopAgentBtn').disabled = false;
-            updateAgentStatus(`Agent Running - 0/${agentMaxEmails} emails sent`, true);
-            updateProgress();
+            const btn = document.getElementById('launchCampaignBtn');
+            btn.disabled = true;
+            btn.textContent = 'Agent Running...';
 
-            // Reset queue statuses
-            document.querySelectorAll('.queue-item-status').forEach(el => {
-                el.className = 'queue-item-status pending';
-                el.textContent = 'Pending';
-            });
+            // Clear previous log entries
+            document.getElementById('logEntries').innerHTML = '';
 
-            addLogEntry(`Agent started. Processing ${Math.min(agentQueue.length, agentMaxEmails)} buyers at ${frequency/1000}s intervals`, 'info');
-
-            // Start processing
-            processNextBuyer();
-        }
-
-        function stopAgent() {
-            agentRunning = false;
-            if (agentInterval) {
-                clearTimeout(agentInterval);
-                agentInterval = null;
+            // Get frequency setting
+            const frequencyValue = document.getElementById('campaignFrequency').value;
+            let frequencyText = '';
+            switch(frequencyValue) {
+                case '5000': frequencyText = 'every 5 seconds (demo)'; break;
+                case 'twice_weekly': frequencyText = 'twice a week'; break;
+                case 'weekly': frequencyText = 'weekly'; break;
+                case 'twice_monthly': frequencyText = 'twice a month'; break;
+                case 'monthly': frequencyText = 'monthly'; break;
             }
 
-            document.getElementById('startAgentBtn').disabled = false;
-            document.getElementById('stopAgentBtn').disabled = true;
-            updateAgentStatus('Agent Stopped', false);
+            updateAgentStatus('Agent Running', true);
+            updateProgress(10);
 
-            addLogEntry('Agent stopped by user', 'error');
-        }
+            addLogEntry(`Campaign started for ${currentBuyerName}`, 'info');
+            addLogEntry(`Email frequency set to: ${frequencyText}`, 'info');
+            addLogEntry('Selecting top 2 matching properties...', 'processing');
 
-        async function processNextBuyer() {
-            if (!agentRunning) return;
-
-            if (agentEmailsSent >= agentMaxEmails || agentCurrentIndex >= agentQueue.length) {
-                // Done
-                agentRunning = false;
-                document.getElementById('startAgentBtn').disabled = false;
-                document.getElementById('stopAgentBtn').disabled = true;
-                updateAgentStatus(`Complete - ${agentEmailsSent}/${agentMaxEmails} emails sent`, false);
-                addLogEntry(`Agent completed! Sent ${agentEmailsSent} emails successfully.`, 'success');
-                return;
-            }
-
-            const buyer = agentQueue[agentCurrentIndex];
-            const queueIndex = Array.from(document.querySelectorAll('#queueList input[type="checkbox"]'))
-                .findIndex(cb => cb.dataset.name === buyer.name);
-
-            // Update status to processing
-            if (queueIndex >= 0) {
-                const statusEl = document.getElementById(`queueStatus-${queueIndex}`);
-                if (statusEl) {
-                    statusEl.className = 'queue-item-status processing';
-                    statusEl.textContent = 'Processing';
-                }
-            }
-
-            addLogEntry(`Processing ${buyer.name}...`, 'processing');
+            updateProgress(30);
 
             try {
                 // Run the full agent cycle
@@ -1039,9 +881,9 @@
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        buyer_name: buyer.name,
-                        buyer_email: buyer.email,
-                        buyer_input: buyer.input
+                        buyer_name: currentBuyerName,
+                        buyer_email: currentBuyerEmail,
+                        buyer_input: currentBuyerInput
                     })
                 });
 
@@ -1051,74 +893,40 @@
                     throw new Error(data.error);
                 }
 
-                // Log the steps
-                if (data.steps) {
-                    data.steps.forEach(step => {
-                        addLogEntry(step.action, 'success');
-                    });
-                }
+                updateProgress(60);
 
-                // Update status
-                if (queueIndex >= 0) {
-                    const statusEl = document.getElementById(`queueStatus-${queueIndex}`);
-                    if (statusEl) {
-                        statusEl.className = 'queue-item-status complete';
-                        statusEl.textContent = 'Sent';
+                // Log the steps from the agent
+                if (data.steps) {
+                    for (const step of data.steps) {
+                        addLogEntry(step.action, 'success');
+                        await new Promise(r => setTimeout(r, 300)); // Small delay for visual effect
                     }
                 }
 
-                agentEmailsSent++;
-                updateAgentStatus(`Agent Running - ${agentEmailsSent}/${agentMaxEmails} emails sent`, true);
-                updateProgress();
+                updateProgress(100);
 
-                addLogEntry(`Email sent to ${buyer.email}`, 'success');
+                // Show selected properties
+                if (data.properties_selected) {
+                    addLogEntry(`Properties selected: ${data.properties_selected.join(', ')}`, 'success');
+                }
+
+                updateAgentStatus('Campaign Complete', false);
+                addLogEntry(`Email successfully sent to ${currentBuyerEmail}!`, 'success');
+
+                if (frequencyValue !== '5000') {
+                    addLogEntry(`Next email scheduled: ${frequencyText}`, 'info');
+                }
 
             } catch (error) {
-                addLogEntry(`Error for ${buyer.name}: ${error.message}`, 'error');
-
-                if (queueIndex >= 0) {
-                    const statusEl = document.getElementById(`queueStatus-${queueIndex}`);
-                    if (statusEl) {
-                        statusEl.className = 'queue-item-status error';
-                        statusEl.textContent = 'Error';
-                    }
-                }
-            }
-
-            agentCurrentIndex++;
-
-            // Schedule next buyer
-            if (agentRunning && agentEmailsSent < agentMaxEmails && agentCurrentIndex < agentQueue.length) {
-                const frequency = parseInt(document.getElementById('agentFrequency').value);
-                addLogEntry(`Waiting ${frequency/1000} seconds before next email...`, 'info');
-                agentInterval = setTimeout(processNextBuyer, frequency);
-            } else {
-                processNextBuyer(); // Check if done
+                updateAgentStatus('Campaign Failed', false);
+                addLogEntry(`Error: ${error.message}`, 'error');
+                updateProgress(0);
+            } finally {
+                agentRunning = false;
+                btn.disabled = false;
+                btn.textContent = 'Launch Agent Campaign';
             }
         }
-
-        // Update queue when saving buyers
-        const originalSaveBuyer = saveBuyer;
-        saveBuyer = function() {
-            const name = document.getElementById('buyerName').value;
-            const email = document.getElementById('buyerEmail').value;
-            const input = document.getElementById('buyerInput').value;
-
-            if (!name) {
-                alert('Please enter a buyer name to save');
-                return;
-            }
-
-            const buyers = JSON.parse(localStorage.getItem('savedBuyers') || '{}');
-            buyers[name] = { name, email, input };
-            localStorage.setItem('savedBuyers', JSON.stringify(buyers));
-
-            loadSavedBuyersList();
-            loadBuyerQueue();
-            document.getElementById('savedBuyers').value = name;
-
-            alert(`Buyer "${name}" saved!`);
-        };
     </script>
 </body>
 </html>
