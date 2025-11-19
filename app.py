@@ -321,19 +321,40 @@ def parse_preferences_manually(buyer_input: str) -> dict:
     text = buyer_input.lower()
 
     # Extract budget
-    import re
-    budget_match = re.search(r'\$?([\d,]+(?:\.\d+)?)\s*(?:million|m|mil)', text)
+    # Match millions (e.g., $1M, $1.5 million, 2mil)
+    budget_match = re.search(r'\$?([\d,]+(?:\.\d+)?)\s*(?:million|m|mil)\b', text, re.IGNORECASE)
     if budget_match:
-        amount = float(budget_match.group(1).replace(',', ''))
-        preferences['max_budget'] = int(amount * 1000000)
-    else:
-        budget_match = re.search(r'\$?([\d,]+)(?:k)?', text)
+        try:
+            amount_str = budget_match.group(1).replace(',', '').strip()
+            if amount_str:
+                amount = float(amount_str)
+                preferences['max_budget'] = int(amount * 1000000)
+        except (ValueError, TypeError) as e:
+            logger.warning(f"Failed to parse million budget: {e}")
+
+    # If no millions match, try thousands (e.g., $500k, $800K)
+    if 'max_budget' not in preferences:
+        budget_match = re.search(r'\$?([\d,]+)\s*k\b', text, re.IGNORECASE)
         if budget_match:
-            amount = int(budget_match.group(1).replace(',', ''))
-            if amount < 10000:
-                preferences['max_budget'] = amount * 1000
-            else:
-                preferences['max_budget'] = amount
+            try:
+                amount_str = budget_match.group(1).replace(',', '').strip()
+                if amount_str:
+                    amount = int(amount_str)
+                    preferences['max_budget'] = amount * 1000
+            except (ValueError, TypeError) as e:
+                logger.warning(f"Failed to parse k budget: {e}")
+
+    # Try plain dollar amounts (e.g., $1,000,000)
+    if 'max_budget' not in preferences:
+        budget_match = re.search(r'\$([\d,]+)', text)
+        if budget_match:
+            try:
+                amount_str = budget_match.group(1).replace(',', '').strip()
+                if amount_str:
+                    amount = int(amount_str)
+                    preferences['max_budget'] = amount
+            except (ValueError, TypeError) as e:
+                logger.warning(f"Failed to parse dollar budget: {e}")
 
     # Extract bedrooms
     bed_match = re.search(r'(\d+)\s*(?:bed|bedroom|br)', text)
@@ -352,8 +373,16 @@ def parse_preferences_manually(buyer_input: str) -> dict:
     # Extract locations (SF/Bay Area neighborhoods + major US cities)
     locations = []
     neighborhoods = ['pacific heights', 'marina', 'noe valley', 'mission', 'soma', 'hayes valley',
-                    'russian hill', 'nopa', 'richmond', 'sunset', 'fremont', 'oakland', 'berkeley',
-                    'san jose', 'santa clara', 'sunnyvale', 'mountain view', 'palo alto',
+                    'russian hill', 'nopa', 'richmond', 'sunset', 'san francisco',
+                    # Bay Area cities
+                    'fremont', 'oakland', 'berkeley', 'san jose', 'santa clara', 'sunnyvale',
+                    'mountain view', 'palo alto', 'san mateo', 'redwood city', 'daly city',
+                    'south san francisco', 'hayward', 'concord', 'walnut creek', 'pleasanton',
+                    'livermore', 'cupertino', 'milpitas', 'newark', 'union city', 'alameda',
+                    'san leandro', 'san ramon', 'dublin', 'menlo park', 'foster city',
+                    'burlingame', 'san bruno', 'pacifica', 'saratoga', 'los gatos', 'campbell',
+                    'morgan hill', 'gilroy', 'vallejo', 'fairfield', 'napa', 'sonoma',
+                    'petaluma', 'santa rosa', 'san rafael', 'novato', 'sausalito', 'tiburon',
                     # Major US cities
                     'boston', 'new york', 'chicago', 'los angeles', 'seattle', 'austin',
                     'denver', 'miami', 'atlanta', 'portland', 'phoenix', 'san diego',
@@ -438,15 +467,30 @@ def match_properties(preferences: dict, properties: list) -> list:
     target_city = None
 
     # Check if any preferred location is a major city not in our data
-    sf_areas = ['pacific heights', 'marina', 'mission', 'soma', 'nopa', 'hayes valley',
-                'russian hill', 'noe valley', 'richmond', 'sunset', 'san francisco']
-    sj_areas = ['san jose', 'santa clara', 'sunnyvale', 'mountain view', 'fremont',
-                'oakland', 'berkeley', 'palo alto']
+    # Bay Area cities are treated as local and won't trigger adaptation
+    bay_area_cities = [
+        # SF neighborhoods
+        'pacific heights', 'marina', 'mission', 'soma', 'nopa', 'hayes valley',
+        'russian hill', 'noe valley', 'richmond', 'sunset', 'san francisco',
+        # South Bay
+        'san jose', 'santa clara', 'sunnyvale', 'mountain view', 'palo alto',
+        'cupertino', 'milpitas', 'saratoga', 'los gatos', 'campbell', 'morgan hill', 'gilroy',
+        # East Bay
+        'fremont', 'oakland', 'berkeley', 'hayward', 'concord', 'walnut creek',
+        'pleasanton', 'livermore', 'newark', 'union city', 'alameda', 'san leandro',
+        'san ramon', 'dublin',
+        # Peninsula
+        'san mateo', 'redwood city', 'daly city', 'south san francisco', 'menlo park',
+        'foster city', 'burlingame', 'san bruno', 'pacifica',
+        # North Bay
+        'vallejo', 'fairfield', 'napa', 'sonoma', 'petaluma', 'santa rosa',
+        'san rafael', 'novato', 'sausalito', 'tiburon'
+    ]
 
     for loc in preferred_locations:
         loc_lower = loc.lower()
-        if loc_lower not in sf_areas and loc_lower not in sj_areas:
-            # Check if it's a recognized city
+        if loc_lower not in bay_area_cities:
+            # Check if it's a recognized city outside Bay Area
             if loc_lower in [c.lower() for c in ['Boston', 'New York', 'Chicago', 'Los Angeles',
                 'Seattle', 'Austin', 'Denver', 'Miami', 'Atlanta', 'Portland', 'Phoenix',
                 'San Diego', 'Dallas', 'Houston', 'Philadelphia', 'Washington DC', 'Detroit',

@@ -234,7 +234,8 @@ cp .env.sample .env
 # Edit .env with your API keys
 
 # Run locally
-python app.py
+python3 app.py
+# Then open http://localhost:5000 in your browser
 ```
 
 ### Environment Variables
