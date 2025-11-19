@@ -349,11 +349,17 @@ def parse_preferences_manually(buyer_input: str) -> dict:
     if features:
         preferences['desired_features'] = features
 
-    # Extract locations (common SF and Bay Area neighborhoods)
+    # Extract locations (SF/Bay Area neighborhoods + major US cities)
     locations = []
     neighborhoods = ['pacific heights', 'marina', 'noe valley', 'mission', 'soma', 'hayes valley',
                     'russian hill', 'nopa', 'richmond', 'sunset', 'fremont', 'oakland', 'berkeley',
-                    'san jose', 'santa clara', 'sunnyvale', 'mountain view', 'palo alto']
+                    'san jose', 'santa clara', 'sunnyvale', 'mountain view', 'palo alto',
+                    # Major US cities
+                    'boston', 'new york', 'chicago', 'los angeles', 'seattle', 'austin',
+                    'denver', 'miami', 'atlanta', 'portland', 'phoenix', 'san diego',
+                    'dallas', 'houston', 'philadelphia', 'washington dc', 'detroit',
+                    'minneapolis', 'nashville', 'charlotte', 'raleigh', 'tampa',
+                    'orlando', 'las vegas', 'sacramento', 'salt lake city', 'baltimore']
     for hood in neighborhoods:
         if hood in text:
             locations.append(hood.title())
@@ -375,8 +381,85 @@ def parse_preferences_manually(buyer_input: str) -> dict:
 
     return preferences
 
+def extract_city_from_input(text: str) -> str:
+    """Extract city name from buyer input for dynamic property adaptation."""
+    text_lower = text.lower()
+
+    # Common US cities to detect (expand as needed)
+    cities = [
+        'boston', 'new york', 'chicago', 'los angeles', 'seattle', 'austin',
+        'denver', 'miami', 'atlanta', 'portland', 'phoenix', 'san diego',
+        'dallas', 'houston', 'philadelphia', 'washington dc', 'detroit',
+        'minneapolis', 'nashville', 'charlotte', 'raleigh', 'tampa',
+        'orlando', 'las vegas', 'sacramento', 'salt lake city', 'baltimore'
+    ]
+
+    for city in cities:
+        if city in text_lower:
+            return city.title()
+
+    return None
+
+def adapt_properties_for_city(properties: list, target_city: str) -> list:
+    """Adapt property addresses to target city for demo purposes."""
+    # State mapping for cities
+    city_states = {
+        'Boston': 'MA', 'New York': 'NY', 'Chicago': 'IL', 'Los Angeles': 'CA',
+        'Seattle': 'WA', 'Austin': 'TX', 'Denver': 'CO', 'Miami': 'FL',
+        'Atlanta': 'GA', 'Portland': 'OR', 'Phoenix': 'AZ', 'San Diego': 'CA',
+        'Dallas': 'TX', 'Houston': 'TX', 'Philadelphia': 'PA', 'Washington Dc': 'DC',
+        'Detroit': 'MI', 'Minneapolis': 'MN', 'Nashville': 'TN', 'Charlotte': 'NC',
+        'Raleigh': 'NC', 'Tampa': 'FL', 'Orlando': 'FL', 'Las Vegas': 'NV',
+        'Sacramento': 'CA', 'Salt Lake City': 'UT', 'Baltimore': 'MD'
+    }
+
+    state = city_states.get(target_city, 'CA')
+    adapted = []
+
+    for prop in properties:
+        adapted_prop = prop.copy()
+        # Extract street number and name from original address
+        original_addr = prop.get('address', '')
+        parts = original_addr.split(',')
+        if parts:
+            street = parts[0].strip()
+            # Create new address with target city
+            adapted_prop['address'] = f"{street}, {target_city}, {state}"
+            # Update neighborhood to reflect city
+            adapted_prop['neighborhood'] = f"{target_city} - {prop.get('neighborhood', 'Downtown')}"
+        adapted.append(adapted_prop)
+
+    return adapted
+
 def match_properties(preferences: dict, properties: list) -> list:
     """Match properties against buyer preferences."""
+    # Check if buyer is looking for a different city
+    preferred_locations = preferences.get('preferred_locations', [])
+    target_city = None
+
+    # Check if any preferred location is a major city not in our data
+    sf_areas = ['pacific heights', 'marina', 'mission', 'soma', 'nopa', 'hayes valley',
+                'russian hill', 'noe valley', 'richmond', 'sunset', 'san francisco']
+    sj_areas = ['san jose', 'santa clara', 'sunnyvale', 'mountain view', 'fremont',
+                'oakland', 'berkeley', 'palo alto']
+
+    for loc in preferred_locations:
+        loc_lower = loc.lower()
+        if loc_lower not in sf_areas and loc_lower not in sj_areas:
+            # Check if it's a recognized city
+            if loc_lower in [c.lower() for c in ['Boston', 'New York', 'Chicago', 'Los Angeles',
+                'Seattle', 'Austin', 'Denver', 'Miami', 'Atlanta', 'Portland', 'Phoenix',
+                'San Diego', 'Dallas', 'Houston', 'Philadelphia', 'Washington DC', 'Detroit',
+                'Minneapolis', 'Nashville', 'Charlotte', 'Raleigh', 'Tampa', 'Orlando',
+                'Las Vegas', 'Sacramento', 'Salt Lake City', 'Baltimore']]:
+                target_city = loc.title()
+                break
+
+    # Adapt properties if searching for different city
+    if target_city:
+        properties = adapt_properties_for_city(properties, target_city)
+        logger.info(f"Adapted properties for city: {target_city}")
+
     matches = []
 
     for prop in properties:
