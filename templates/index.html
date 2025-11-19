@@ -855,9 +855,12 @@
 
             // Get frequency setting
             const frequencyValue = document.getElementById('campaignFrequency').value;
+            const isDemoMode = frequencyValue === '5000';
+            const numEmails = isDemoMode ? 2 : 1; // Demo mode sends 2 emails
+
             let frequencyText = '';
             switch(frequencyValue) {
-                case '5000': frequencyText = 'every 5 seconds (demo)'; break;
+                case '5000': frequencyText = 'every 5 seconds (demo - 2 emails)'; break;
                 case 'twice_weekly': frequencyText = 'twice a week'; break;
                 case 'weekly': frequencyText = 'weekly'; break;
                 case 'twice_monthly': frequencyText = 'twice a month'; break;
@@ -865,61 +868,80 @@
             }
 
             updateAgentStatus('Agent Running', true);
-            updateProgress(10);
+            updateProgress(5);
 
             addLogEntry(`Campaign started for ${currentBuyerName}`, 'info');
             addLogEntry(`Email frequency set to: ${frequencyText}`, 'info');
-            addLogEntry('Selecting top 2 matching properties...', 'processing');
 
-            updateProgress(30);
+            if (isDemoMode) {
+                addLogEntry(`Demo mode: Will send ${numEmails} emails with different properties`, 'info');
+            }
+
+            let excludeAddresses = [];
+            let emailsSent = 0;
 
             try {
-                // Run the full agent cycle
-                const response = await fetch('/run-agent-cycle', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        buyer_name: currentBuyerName,
-                        buyer_email: currentBuyerEmail,
-                        buyer_input: currentBuyerInput
-                    })
-                });
-
-                const data = await response.json();
-
-                if (data.error) {
-                    throw new Error(data.error);
-                }
-
-                updateProgress(60);
-
-                // Log the steps from the agent
-                if (data.steps) {
-                    for (const step of data.steps) {
-                        addLogEntry(step.action, 'success');
-                        await new Promise(r => setTimeout(r, 300)); // Small delay for visual effect
+                for (let i = 0; i < numEmails; i++) {
+                    if (i > 0) {
+                        addLogEntry(`Waiting 5 seconds before sending email ${i + 1}...`, 'info');
+                        await new Promise(r => setTimeout(r, 5000));
                     }
+
+                    addLogEntry(`Selecting properties for email ${i + 1}/${numEmails}...`, 'processing');
+                    updateProgress(10 + (i * 45));
+
+                    // Run the agent cycle
+                    const response = await fetch('/run-agent-cycle', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            buyer_name: currentBuyerName,
+                            buyer_email: currentBuyerEmail,
+                            buyer_input: currentBuyerInput,
+                            exclude_addresses: excludeAddresses
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+
+                    // Log the steps from the agent
+                    if (data.steps) {
+                        for (const step of data.steps) {
+                            addLogEntry(step.action, 'success');
+                            await new Promise(r => setTimeout(r, 200));
+                        }
+                    }
+
+                    // Track which properties were used
+                    if (data.properties_selected) {
+                        excludeAddresses = excludeAddresses.concat(data.properties_selected);
+                        addLogEntry(`Email ${i + 1} sent with: ${data.properties_selected.join(', ')}`, 'success');
+                    }
+
+                    emailsSent++;
+                    updateProgress(10 + ((i + 1) * 45));
                 }
 
                 updateProgress(100);
-
-                // Show selected properties
-                if (data.properties_selected) {
-                    addLogEntry(`Properties selected: ${data.properties_selected.join(', ')}`, 'success');
-                }
-
                 updateAgentStatus('Campaign Complete', false);
-                addLogEntry(`Email successfully sent to ${currentBuyerEmail}!`, 'success');
+                addLogEntry(`Successfully sent ${emailsSent} email(s) to ${currentBuyerEmail}!`, 'success');
 
-                if (frequencyValue !== '5000') {
+                if (!isDemoMode) {
                     addLogEntry(`Next email scheduled: ${frequencyText}`, 'info');
                 }
 
             } catch (error) {
                 updateAgentStatus('Campaign Failed', false);
                 addLogEntry(`Error: ${error.message}`, 'error');
+                if (emailsSent > 0) {
+                    addLogEntry(`${emailsSent} email(s) were sent before the error`, 'info');
+                }
                 updateProgress(0);
             } finally {
                 agentRunning = false;

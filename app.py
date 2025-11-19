@@ -337,6 +337,7 @@ def run_agent_cycle():
         buyer_name = data.get('buyer_name', 'Valued Client')
         buyer_email = data.get('buyer_email')
         buyer_input = data.get('buyer_input', '')
+        exclude_addresses = data.get('exclude_addresses', [])  # For sending different properties in subsequent emails
 
         if not buyer_input:
             return jsonify({'error': 'Buyer input is required', 'step': 'validation'}), 400
@@ -356,6 +357,11 @@ def run_agent_cycle():
 
         # Step 3: Match properties
         matches = match_properties(preferences, properties)
+
+        # Filter out excluded properties
+        if exclude_addresses:
+            matches = [m for m in matches if m['property'].get('address') not in exclude_addresses]
+
         steps.append({'action': f'Found {len(matches)} matching properties', 'status': 'complete'})
 
         if len(matches) < 2:
