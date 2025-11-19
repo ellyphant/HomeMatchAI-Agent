@@ -351,6 +351,7 @@ def run_agent_cycle():
         buyer_name = data.get('buyer_name', 'Valued Client')
         buyer_email = data.get('buyer_email')
         buyer_input = data.get('buyer_input', '')
+        personalization_style = data.get('personalization_style', '')
         exclude_addresses = data.get('exclude_addresses', [])  # For sending different properties in subsequent emails
 
         if not buyer_input:
@@ -417,17 +418,24 @@ def run_agent_cycle():
             matches_text += f"   Why it matches: {', '.join(match.get('reasons', []))}\n"
 
         prompt = load_prompt('email_gen')
+
+        # Add personalization style to the prompt if provided
+        prompt_content = prompt.format(
+            buyer_name=buyer_name,
+            preferences=json.dumps(preferences, indent=2),
+            matches=matches_text
+        )
+
+        if personalization_style:
+            prompt_content += f"\n\nPersonalization Style Instructions:\n{personalization_style}\n\nApply these style instructions when writing the email."
+
         response = client.chat.completions.create(
             model="hf:zai-org/GLM-4.5",
             max_tokens=4096,
             messages=[
                 {
                     "role": "user",
-                    "content": prompt.format(
-                        buyer_name=buyer_name,
-                        preferences=json.dumps(preferences, indent=2),
-                        matches=matches_text
-                    )
+                    "content": prompt_content
                 }
             ]
         )

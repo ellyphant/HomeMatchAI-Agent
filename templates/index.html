@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Marketing Agent for Realtors</title>
+    <title>Scout - Realtors' Best AI Marketing Agent</title>
     <style>
         * {
             box-sizing: border-box;
@@ -241,6 +241,11 @@
             100% { transform: rotate(360deg); }
         }
 
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
         .hint {
             font-size: 0.85rem;
             color: #888;
@@ -467,7 +472,7 @@
             position: fixed;
             top: 20px;
             right: 20px;
-            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            background: linear-gradient(135deg, #17a2b8 0%, #20c997 100%);
             color: white;
             padding: 16px 24px;
             border-radius: 12px;
@@ -507,14 +512,16 @@
         </div>
 
         <header>
-            <h1>AI Marketing Agent for Realtors</h1>
-            <p>We find and share the perfect home via personalized emails.<br>You're hands off until they're ready to tour.</p>
+            <div style="display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 10px;">
+                <img src="https://cdn-icons-png.flaticon.com/512/1998/1998627.png" alt="Scout puppy" style="width: 60px; height: 60px; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));">
+                <h1 style="margin: 0;">Scout <span style="color: rgba(255,255,255,0.6); font-weight: 400;">- Realtors' Best AI Marketing Agent</span></h1>
+            </div>
+            <p>Scout finds and shares the best homes to your client, fully personalized.<br>You're hands off until your client is ready to tour.</p>
         </header>
 
         <div class="card">
             <form id="searchForm">
                 <div class="form-group">
-                    <label for="savedBuyers">Load Saved Buyer</label>
                     <select id="savedBuyers" onchange="loadSavedBuyer()">
                         <option value="">-- Select a saved buyer --</option>
                     </select>
@@ -531,22 +538,28 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="buyerInput">What are you looking for?</label>
-                    <textarea id="buyerInput" name="buyerInput" placeholder="Describe your ideal home. Include details like budget, number of bedrooms, preferred neighborhoods, must-have features, etc." required></textarea>
-                    <p class="hint">Example: "I'm looking for a 3-bedroom house in Pacific Heights or Marina with a budget of $1.5M. Must have a garage and modern kitchen. Would love a backyard and home office."</p>
+                    <label for="buyerInput">Buyer's Ideal Home</label>
+                    <textarea id="buyerInput" name="buyerInput" placeholder="Describe your ideal home. Include details like budget, number of bedrooms, preferred neighborhoods, must-have features, etc.
+
+Example: I'm looking for a 3-bedroom house in Pacific Heights or Marina with a budget of $1.5M. Must have a garage and modern kitchen. Would love a backyard and home office." required></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="personalizationStyle">Personalization Style</label>
+                    <textarea id="personalizationStyle" name="personalizationStyle" placeholder="Describe the tone and style for this buyer's emails (e.g., formal/casual, focus on investment ROI, emphasize family-friendly features, luxury-focused, first-time buyer friendly)" style="min-height: 80px;"></textarea>
                 </div>
 
                 <div style="display: flex; gap: 10px;">
-                    <button type="submit" id="submitBtn" style="flex: 2;">Find Matching Properties</button>
-                    <button type="button" id="saveBtn" onclick="saveBuyer()" style="flex: 1; background: #28a745;">Save Buyer</button>
+                    <button type="submit" id="submitBtn" style="flex: 2;">Ask Scout for Help</button>
+                    <button type="button" id="saveBtn" onclick="saveBuyer()" style="flex: 1; background: #17a2b8;">Save Buyer</button>
                 </div>
             </form>
         </div>
 
         <div class="card results" id="results">
             <div class="loading" id="loading">
-                <div class="spinner"></div>
-                <p>Analyzing your preferences and finding matches...</p>
+                <img src="https://cdn-icons-png.flaticon.com/512/1998/1998627.png" alt="Scout" style="width: 60px; height: 60px; margin-bottom: 15px; animation: bounce 1s infinite;">
+                <p>Scout is fetching...</p>
             </div>
 
             <div id="resultContent" style="display: none;">
@@ -557,8 +570,8 @@
 
                 <!-- Agent Campaign Section -->
                 <div class="result-section agent-campaign-section">
-                    <h3 style="color: #00d4ff;">Launch Agent Campaign</h3>
-                    <p style="color: #e0e0e0; margin-bottom: 15px;">Review preferences above, then let the AI agent automatically select the best properties, generate a personalized email, and send it.</p>
+                    <h3 style="color: #00d4ff;">Launch Email Campaign</h3>
+                    <p style="color: #e0e0e0; margin-bottom: 15px;">Review preferences above, then let Scout, your AI agent, automatically select the best properties, generate a personalized email, and send it.</p>
 
                     <div class="agent-campaign-controls">
                         <div class="form-group">
@@ -575,7 +588,7 @@
 
                     <div style="position: relative;">
                         <button type="button" id="launchCampaignBtn" onclick="launchAgentCampaign()" style="background: linear-gradient(135deg, #00ff88 0%, #00d4ff 100%); color: #000; font-weight: 700; position: relative; overflow: hidden;">
-                            <span id="launchBtnText">Launch Agent Campaign</span>
+                            <span id="launchBtnText">Launch Email Campaign</span>
                         </button>
                         <div class="progress-bar" style="position: absolute; bottom: 0; left: 0; right: 0; height: 4px; margin: 0; border-radius: 0 0 8px 8px;">
                             <div class="progress-bar-fill" id="progressBar"></div>
@@ -621,6 +634,7 @@
         let currentBuyerName = '';
         let currentBuyerEmail = '';
         let currentBuyerInput = '';
+        let currentPersonalizationStyle = '';
         let currentMatches = [];
         let currentPreferences = {};
 
@@ -628,7 +642,7 @@
         let agentRunning = false;
 
         // Track saved state
-        let lastSavedData = { name: '', email: '', input: '' };
+        let lastSavedData = { name: '', email: '', input: '', personalizationStyle: '' };
 
         // Load saved buyers on page load
         document.addEventListener('DOMContentLoaded', () => {
@@ -638,8 +652,9 @@
             const nameInput = document.getElementById('buyerName');
             const emailInput = document.getElementById('buyerEmail');
             const inputField = document.getElementById('buyerInput');
+            const styleField = document.getElementById('personalizationStyle');
 
-            [nameInput, emailInput, inputField].forEach(field => {
+            [nameInput, emailInput, inputField, styleField].forEach(field => {
                 field.addEventListener('input', updateSaveButtonState);
             });
         });
@@ -649,13 +664,15 @@
             const currentName = document.getElementById('buyerName').value;
             const currentEmail = document.getElementById('buyerEmail').value;
             const currentInput = document.getElementById('buyerInput').value;
+            const currentStyle = document.getElementById('personalizationStyle').value;
 
             const hasChanges = currentName !== lastSavedData.name ||
                                currentEmail !== lastSavedData.email ||
-                               currentInput !== lastSavedData.input;
+                               currentInput !== lastSavedData.input ||
+                               currentStyle !== lastSavedData.personalizationStyle;
 
             if (hasChanges) {
-                saveBtn.style.background = '#28a745'; // Green - unsaved changes
+                saveBtn.style.background = '#17a2b8'; // Teal - unsaved changes
             } else {
                 saveBtn.style.background = '#6c757d'; // Gray - already saved
             }
@@ -688,6 +705,7 @@
             const name = document.getElementById('buyerName').value;
             const email = document.getElementById('buyerEmail').value;
             const input = document.getElementById('buyerInput').value;
+            const personalizationStyle = document.getElementById('personalizationStyle').value;
 
             if (!name) {
                 alert('Please enter a buyer name to save');
@@ -695,11 +713,11 @@
             }
 
             const buyers = JSON.parse(localStorage.getItem('savedBuyers') || '{}');
-            buyers[name] = { name, email, input };
+            buyers[name] = { name, email, input, personalizationStyle };
             localStorage.setItem('savedBuyers', JSON.stringify(buyers));
 
             // Update saved state tracking
-            lastSavedData = { name, email, input };
+            lastSavedData = { name, email, input, personalizationStyle };
             updateSaveButtonState();
 
             loadSavedBuyersList();
@@ -721,12 +739,14 @@
                 document.getElementById('buyerName').value = buyer.name || '';
                 document.getElementById('buyerEmail').value = buyer.email || '';
                 document.getElementById('buyerInput').value = buyer.input || '';
+                document.getElementById('personalizationStyle').value = buyer.personalizationStyle || '';
 
                 // Update saved state tracking
                 lastSavedData = {
                     name: buyer.name || '',
                     email: buyer.email || '',
-                    input: buyer.input || ''
+                    input: buyer.input || '',
+                    personalizationStyle: buyer.personalizationStyle || ''
                 };
                 updateSaveButtonState();
             }
@@ -738,11 +758,13 @@
             const buyerName = document.getElementById('buyerName').value;
             const buyerEmail = document.getElementById('buyerEmail').value;
             const buyerInput = document.getElementById('buyerInput').value;
+            const personalizationStyle = document.getElementById('personalizationStyle').value;
 
             // Store for later use
             currentBuyerName = buyerName;
             currentBuyerEmail = buyerEmail;
             currentBuyerInput = buyerInput;
+            currentPersonalizationStyle = personalizationStyle;
 
             // Show loading state
             results.classList.add('show');
@@ -750,7 +772,7 @@
             resultContent.style.display = 'none';
             errorDiv.style.display = 'none';
             submitBtn.disabled = true;
-            submitBtn.textContent = 'Searching...';
+            submitBtn.style.background = '#6c757d';
 
             try {
                 const response = await fetch('/generate', {
@@ -784,7 +806,7 @@
                 loading.style.display = 'none';
             } finally {
                 submitBtn.disabled = false;
-                submitBtn.textContent = 'Find Matching Properties';
+                submitBtn.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
             }
         });
 
@@ -1004,7 +1026,7 @@
                 case 'monthly': frequencyText = 'monthly'; break;
             }
 
-            updateAgentStatus('Agent Running', true);
+            updateAgentStatus('Thinking...', true);
             updateProgress(5);
 
             addLogEntry(`Campaign started for ${currentBuyerName}`, 'info');
@@ -1037,6 +1059,7 @@
                             buyer_name: currentBuyerName,
                             buyer_email: currentBuyerEmail,
                             buyer_input: currentBuyerInput,
+                            personalization_style: currentPersonalizationStyle,
                             exclude_addresses: excludeAddresses
                         })
                     });
@@ -1094,7 +1117,7 @@
                 btn.disabled = false;
                 // Reset button text after a delay so user can see completion status
                 setTimeout(() => {
-                    updateAgentStatus('Launch Agent Campaign', false);
+                    updateAgentStatus('Launch Email Campaign', false);
                 }, 3000);
             }
         }
