@@ -51,65 +51,112 @@ def analyze_buyer_preferences(buyer_input: str) -> dict:
 
         if not response.choices or not response.choices[0].message:
             print("No response from model")
-            return {}
+            return parse_preferences_manually(buyer_input)
 
         response_text = response.choices[0].message.content
         if not response_text:
             print("Empty response content")
-            return {}
+            return parse_preferences_manually(buyer_input)
 
         start = response_text.find('{')
         end = response_text.rfind('}') + 1
         if start != -1 and end > start:
-            return json.loads(response_text[start:end])
+            parsed = json.loads(response_text[start:end])
+            if parsed:
+                return parsed
 
         print(f"No JSON found in response: {response_text[:200]}")
-        return {}
+        return parse_preferences_manually(buyer_input)
 
     except json.JSONDecodeError as e:
         print(f"JSON decode error: {e}")
-        return {}
+        return parse_preferences_manually(buyer_input)
     except Exception as e:
         print(f"Error in analyze_buyer_preferences: {e}")
-        return {}
+        return parse_preferences_manually(buyer_input)
+
+def parse_preferences_manually(buyer_input: str) -> dict:
+    """Fallback parser to extract basic preferences from text."""
+    preferences = {}
+    text = buyer_input.lower()
+
+    # Extract budget
+    import re
+    budget_match = re.search(r'\$?([\d,]+(?:\.\d+)?)\s*(?:million|m|mil)', text)
+    if budget_match:
+        amount = float(budget_match.group(1).replace(',', ''))
+        preferences['max_budget'] = int(amount * 1000000)
+    else:
+        budget_match = re.search(r'\$?([\d,]+)(?:k)?', text)
+        if budget_match:
+            amount = int(budget_match.group(1).replace(',', ''))
+            if amount < 10000:
+                preferences['max_budget'] = amount * 1000
+            else:
+                preferences['max_budget'] = amount
+
+    # Extract bedrooms
+    bed_match = re.search(r'(\d+)\s*(?:bed|bedroom|br)', text)
+    if bed_match:
+        preferences['min_bedrooms'] = int(bed_match.group(1))
+
+    # Extract features
+    features = []
+    feature_keywords = ['backyard', 'garage', 'pool', 'view', 'modern kitchen', 'fireplace', 'home office']
+    for feature in feature_keywords:
+        if feature in text:
+            features.append(feature)
+    if features:
+        preferences['desired_features'] = features
+
+    # Extract locations (common SF neighborhoods)
+    locations = []
+    neighborhoods = ['pacific heights', 'marina', 'noe valley', 'mission', 'soma', 'hayes valley',
+                    'russian hill', 'nopa', 'richmond', 'sunset', 'fremont', 'oakland', 'berkeley']
+    for hood in neighborhoods:
+        if hood in text:
+            locations.append(hood.title())
+    if locations:
+        preferences['preferred_locations'] = locations
+
+    return preferences
 
 def match_properties(preferences: dict, properties: list) -> list:
     """Match properties against buyer preferences."""
     matches = []
 
     for prop in properties:
-        score = 10  # Base score for all properties
+        score = 15  # Base score for all properties
         reasons = []
 
         max_budget = preferences.get('max_budget')
         if max_budget and 'price' in prop:
             if prop['price'] <= max_budget:
-                score += 30
+                score += 40
                 reasons.append("Within budget")
             elif prop['price'] <= max_budget * 1.1:
-                score += 15
-                reasons.append("Slightly over budget but close")
+                score += 10
+                reasons.append("Slightly over budget")
         elif not max_budget:
-            score += 10  # No budget specified, give some points
+            score += 20  # No budget specified
 
         min_bedrooms = preferences.get('min_bedrooms')
         if min_bedrooms and 'bedrooms' in prop:
             if prop['bedrooms'] >= min_bedrooms:
-                score += 20
+                score += 15
                 reasons.append(f"{prop['bedrooms']} bedrooms meets requirement")
-        elif not min_bedrooms:
-            score += 5  # No bedrooms specified
 
         if 'preferred_locations' in preferences and 'neighborhood' in prop:
             if prop['neighborhood'].lower() in [loc.lower() for loc in preferences.get('preferred_locations', [])]:
-                score += 25
+                score += 20
                 reasons.append(f"In preferred area: {prop['neighborhood']}")
 
         if 'desired_features' in preferences and 'features' in prop:
             matching_features = set(f.lower() for f in preferences.get('desired_features', [])) & \
                               set(f.lower() for f in prop.get('features', []))
             if matching_features:
-                score += len(matching_features) * 5
+                # High value for matching features
+                score += len(matching_features) * 25
                 reasons.append(f"Has: {', '.join(matching_features)}")
 
         # Always add property with at least a base reason
@@ -253,7 +300,7 @@ def generate_email_endpoint():
 
         response = client.chat.completions.create(
             model="hf:zai-org/GLM-4.5",
-            max_tokens=2048,
+            max_tokens=4096,
             messages=[
                 {
                     "role": "user",

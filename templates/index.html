@@ -60,7 +60,7 @@
             color: #555;
         }
 
-        input, textarea {
+        input, textarea, select {
             width: 100%;
             padding: 12px 16px;
             border: 2px solid #e0e0e0;
@@ -69,9 +69,14 @@
             transition: border-color 0.3s;
         }
 
-        input:focus, textarea:focus {
+        input:focus, textarea:focus, select:focus {
             outline: none;
             border-color: #667eea;
+        }
+
+        select {
+            background: white;
+            cursor: pointer;
         }
 
         textarea {
@@ -137,6 +142,16 @@
             margin-top: 5px;
             width: 20px;
             height: 20px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .match-item label {
+            display: flex;
+            gap: 15px;
+            align-items: flex-start;
+            flex: 1;
+            cursor: pointer;
         }
 
         .match-image {
@@ -237,11 +252,18 @@
     <div class="container">
         <header>
             <h1>HomeMatch AI</h1>
-            <p>Describe your dream home and we'll find matching properties</p>
+            <p>Describe your dream home and we'll email your buyer on matching properties</p>
         </header>
 
         <div class="card">
             <form id="searchForm">
+                <div class="form-group">
+                    <label for="savedBuyers">Load Saved Buyer</label>
+                    <select id="savedBuyers" onchange="loadSavedBuyer()">
+                        <option value="">-- Select a saved buyer --</option>
+                    </select>
+                </div>
+
                 <div class="form-group">
                     <label for="buyerName">Buyer's Name</label>
                     <input type="text" id="buyerName" name="buyerName" placeholder="e.g., John Smith" required>
@@ -258,7 +280,10 @@
                     <p class="hint">Example: "I'm looking for a 3-bedroom house in Pacific Heights or Marina with a budget of $1.5M. Must have a garage and modern kitchen. Would love a backyard and home office."</p>
                 </div>
 
-                <button type="submit" id="submitBtn">Find Matching Properties</button>
+                <div style="display: flex; gap: 10px;">
+                    <button type="submit" id="submitBtn" style="flex: 2;">Find Matching Properties</button>
+                    <button type="button" id="saveBtn" onclick="saveBuyer()" style="flex: 1; background: #6c757d;">Save Buyer</button>
+                </div>
             </form>
         </div>
 
@@ -309,6 +334,58 @@
         let currentBuyerInput = '';
         let currentMatches = [];
         let currentPreferences = {};
+
+        // Load saved buyers on page load
+        document.addEventListener('DOMContentLoaded', loadSavedBuyersList);
+
+        function loadSavedBuyersList() {
+            const buyers = JSON.parse(localStorage.getItem('savedBuyers') || '{}');
+            const select = document.getElementById('savedBuyers');
+            select.innerHTML = '<option value="">-- Select a saved buyer --</option>';
+
+            Object.keys(buyers).forEach(name => {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                select.appendChild(option);
+            });
+        }
+
+        function saveBuyer() {
+            const name = document.getElementById('buyerName').value;
+            const email = document.getElementById('buyerEmail').value;
+            const input = document.getElementById('buyerInput').value;
+
+            if (!name) {
+                alert('Please enter a buyer name to save');
+                return;
+            }
+
+            const buyers = JSON.parse(localStorage.getItem('savedBuyers') || '{}');
+            buyers[name] = { name, email, input };
+            localStorage.setItem('savedBuyers', JSON.stringify(buyers));
+
+            loadSavedBuyersList();
+            document.getElementById('savedBuyers').value = name;
+
+            alert(`Buyer "${name}" saved!`);
+        }
+
+        function loadSavedBuyer() {
+            const select = document.getElementById('savedBuyers');
+            const name = select.value;
+
+            if (!name) return;
+
+            const buyers = JSON.parse(localStorage.getItem('savedBuyers') || '{}');
+            const buyer = buyers[name];
+
+            if (buyer) {
+                document.getElementById('buyerName').value = buyer.name || '';
+                document.getElementById('buyerEmail').value = buyer.email || '';
+                document.getElementById('buyerInput').value = buyer.input || '';
+            }
+        }
 
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -404,7 +481,7 @@
                 data.matches.forEach((match, index) => {
                     matchesHtml += `
                         <div class="match-item">
-                            <input type="checkbox" id="match-${index}" onchange="updateSelection()" data-index="${index}">
+                            <input type="checkbox" id="match-${index}" onchange="updateSelection(event)" data-index="${index}">
                             <img src="${match.image_url || 'https://via.placeholder.com/120x90'}" alt="Property" class="match-image">
                             <div class="match-details">
                                 <h4>${match.address} <span class="match-score">Score: ${match.score}</span></h4>
@@ -423,9 +500,17 @@
             updateSelection();
         }
 
-        function updateSelection() {
+        function updateSelection(event) {
             const checkboxes = document.querySelectorAll('#matches input[type="checkbox"]:checked');
             const count = checkboxes.length;
+
+            // Prevent selecting more than 2
+            if (count > 2 && event && event.target) {
+                event.target.checked = false;
+                alert('You can only select 2 properties');
+                return;
+            }
+
             const btn = document.getElementById('generateEmailBtn');
             btn.textContent = `Generate Email for Selected (${count}/2)`;
             btn.disabled = count !== 2;
