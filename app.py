@@ -589,6 +589,123 @@ def match_properties(preferences: dict, properties: list) -> list:
     matches.sort(key=lambda x: x['score'], reverse=True)
     return matches[:5]
 
+def calculate_match_health(preferences: dict, matches: list) -> dict:
+    """Calculate health metrics for recommendation quality."""
+    if len(matches) < 2:
+        return {'quality': 'insufficient_data', 'score': 0}
+
+    health = {}
+
+    # 1. Score Distribution Quality
+    scores = [m['score'] for m in matches]
+    top_score = scores[0]
+    second_score = scores[1] if len(scores) > 1 else 0
+    score_range = max(scores) - min(scores)
+
+    health['score_distribution'] = {
+        'top_score': top_score,
+        'second_score': second_score,
+        'score_gap': top_score - second_score,
+        'score_range': score_range,
+        'differentiation': 'good' if score_range > 20 else 'fair' if score_range > 10 else 'poor'
+    }
+
+    # 2. Preference Coverage
+    total_prefs = 0
+    matched_prefs = 0
+
+    # Budget coverage
+    if preferences.get('max_budget'):
+        total_prefs += 1
+        if any(m['property']['price'] <= preferences['max_budget'] for m in matches[:2]):
+            matched_prefs += 1
+
+    # Bedroom coverage
+    if preferences.get('min_bedrooms'):
+        total_prefs += 1
+        if any(m['property'].get('bedrooms', 0) >= preferences['min_bedrooms'] for m in matches[:2]):
+            matched_prefs += 1
+
+    # Location coverage
+    if preferences.get('preferred_locations'):
+        total_prefs += 1
+        pref_locs = [loc.lower() for loc in preferences['preferred_locations']]
+        if any(m['property'].get('neighborhood', '').lower() in pref_locs for m in matches[:2]):
+            matched_prefs += 1
+
+    # Feature coverage
+    if preferences.get('desired_features'):
+        desired = set(f.lower() for f in preferences['desired_features'])
+        for feature in desired:
+            total_prefs += 1
+            # Check if any top 2 match has this feature
+            for m in matches[:2]:
+                prop_features = set(f.lower() for f in m['property'].get('features', []))
+                if feature in prop_features:
+                    matched_prefs += 1
+                    break
+
+    coverage_pct = (matched_prefs / max(total_prefs, 1)) * 100
+    health['preference_coverage'] = {
+        'matched': matched_prefs,
+        'total': total_prefs,
+        'percentage': round(coverage_pct, 1)
+    }
+
+    # 3. Budget Efficiency
+    budget = preferences.get('max_budget')
+    if budget:
+        top_prices = [m['property']['price'] for m in matches[:2]]
+        avg_price = sum(top_prices) / len(top_prices)
+        health['budget_efficiency'] = {
+            'avg_price': int(avg_price),
+            'utilization_pct': round((avg_price / budget) * 100, 1),
+            'all_within_budget': all(p <= budget for p in top_prices),
+            'best_savings': int(budget - min(top_prices))
+        }
+
+    # 4. Overall Quality Score (0-100)
+    quality_score = 0
+
+    # Score differentiation (0-30 pts)
+    if score_range > 30:
+        quality_score += 30
+    elif score_range > 20:
+        quality_score += 20
+    elif score_range > 10:
+        quality_score += 10
+
+    # Preference coverage (0-40 pts)
+    quality_score += int(coverage_pct * 0.4)
+
+    # Budget efficiency (0-30 pts)
+    if budget:
+        if health['budget_efficiency']['all_within_budget']:
+            quality_score += 20
+            # Bonus for good utilization (70-100%)
+            util = health['budget_efficiency']['utilization_pct']
+            if 70 <= util <= 100:
+                quality_score += 10
+    else:
+        quality_score += 15  # No budget = neutral
+
+    # Quality label
+    if quality_score >= 80:
+        quality_label = 'excellent'
+    elif quality_score >= 60:
+        quality_label = 'good'
+    elif quality_score >= 40:
+        quality_label = 'fair'
+    else:
+        quality_label = 'poor'
+
+    health['overall'] = {
+        'score': quality_score,
+        'quality': quality_label
+    }
+
+    return health
+
 def generate_email(buyer_name: str, preferences: dict, matches: list) -> str:
     """Use LLM to generate a personalized email with property recommendations."""
     prompt = load_prompt('email_gen')
@@ -1036,6 +1153,10 @@ def run_agent_cycle():
 
         logger.info(f"[{trace_id}] Agent cycle completed in {total_duration:.2f}ms")
 
+        # Calculate match health metrics
+        match_health = calculate_match_health(preferences, matches)
+        logger.info(f"[{trace_id}] Match quality: {match_health['overall']['quality']} (score: {match_health['overall']['score']})")
+
         return jsonify({
             'status': 'success',
             'buyer_name': buyer_name,
@@ -1044,6 +1165,7 @@ def run_agent_cycle():
             'properties_selected': [m['address'] for m in selected_matches],
             'steps': steps,
             'email_content': email_content,
+            'match_health': match_health,
             'timestamp': datetime.utcnow().isoformat(),
             'trace_id': trace_id,
             'total_duration_ms': round(total_duration, 2)
